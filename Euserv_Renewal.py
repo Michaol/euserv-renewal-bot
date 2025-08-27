@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# 版本说明: 最终版，使用Playwright进行浏览器模拟登录，以绕过JS质询。
 
 import os
 import re
@@ -63,13 +62,14 @@ def login(username, password):
         try:
             log("正在导航到登录页面...")
             page.goto("https://support.euserv.com/", timeout=60000)
-            page.wait_for_selector('form[name="login"]', timeout=30000)
+            log("正在等待登录表单元素可见...")
+            page.wait_for_selector('input[type="password"]', timeout=30000)
             log("登录页面加载完成。")
 
-            page.fill('input[name="username"]', username)
-            page.fill('input[name="password"]', password)
+            page.get_by_label("Email address or customer ID").fill(username)
+            page.get_by_label("Password").fill(password)
             log("正在点击登录按钮...")
-            page.click('button[type="submit"]')
+            page.get_by_role("button", name="Login").click()
             page.wait_for_load_state('networkidle', timeout=30000)
             content = page.content()
 
@@ -82,7 +82,7 @@ def login(username, password):
                 log(f"验证码计算结果是: {captcha_answer}")
 
                 page.fill('input[name="captcha_code"]', str(captcha_answer))
-                page.click('button[type="submit"]')
+                page.get_by_role("button", name="Login").click()
                 page.wait_for_load_state('networkidle', timeout=30000)
                 content = page.content()
 
