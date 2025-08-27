@@ -162,7 +162,7 @@ def login(username, password):
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
 
-log("------------------ DEBUGGING START ------------------")  
+log("------------------ DEBUGGING START ------------------")
 log(f"页面状态码 (Status Code): {f.status_code}")
 log(f"页面响应头 (Headers): {f.headers}")
 log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
