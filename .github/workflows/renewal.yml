@@ -2,10 +2,8 @@ name: Euserv VPS Renewal
 
 on:
   schedule:
-    # 在每周日的00:00 (UTC) 运行
     - cron: '0 0 * * 0'
   workflow_dispatch:
-    # 允许手动在Actions页面点击按钮来运行工作流
 
 jobs:
   renew-vps:
@@ -33,4 +31,6 @@ jobs:
           EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+
         run: python Euserv_Renewal.py
