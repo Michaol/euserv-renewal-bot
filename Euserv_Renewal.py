@@ -164,6 +164,7 @@ def login(username, password):
 
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "solve the following captcha" not in f.text:
+            log(f"!!! 未知页面内容如下 !!!\n{f.text}\n--- 未知页面内容结束 ---")
             log("登录失败，响应页面既不包含成功标识，也不包含验证码。")
             return "-1", session
         else:
