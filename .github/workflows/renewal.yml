@@ -1,0 +1,36 @@
+name: Euserv VPS Renewal
+
+on:
+  schedule:
+    # 最终版cron表达式: 在每周日的00:00 (UTC) 运行。
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    # 这个选项允许你手动在Actions页面点击按钮来运行工作流，非常适合测试
+
+jobs:
+  renew-vps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run renewal script
+        env:
+          EUSERV_USERNAME: ${{ secrets.EUSERV_USERNAME }}
+          EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          CAPTCHA_USERID: ${{ secrets.CAPTCHA_USERID }}
+          CAPTCHA_APIKEY: ${{ secrets.CAPTCHA_APIKEY }}
+        run: python renewal_script.py
