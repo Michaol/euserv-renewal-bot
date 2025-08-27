@@ -144,42 +144,64 @@ def get_pin_from_gmail(host, username, password):
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
-    """登录EUserv并获取session"""
-    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
+    """登录EUserv并获取session (增强版Headers)"""
+    session = requests.Session()
     url = "https://support.euserv.com/index.iphp"
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
-    session = requests.Session()
 
-    sess = session.get(url, headers=headers)
-    sess_id_match = re.search(r'name="sess_id" value="(\w+)"', sess.text)
-    if not sess_id_match: raise ValueError("无法找到sess_id")
+    # 1. 初始GET请求，获取会话ID和Cookies
+    # 像浏览器一样，先访问一次页面
+    headers_get = {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+    }
+    log("步骤 1/7: 开始登录流程，正在访问主页...")
+    sess_res = session.get(url, headers=headers_get)
+    sess_res.raise_for_status()
+    sess_id_match = re.search(r'name="sess_id" value="(\w+)"', sess_res.text)
+    if not sess_id_match: raise ValueError("无法在初始页面中找到sess_id")
     sess_id = sess_id_match.group(1)
+
+    # 2. 构造更逼真的POST头信息
+    headers_post = {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+        'Origin': 'https://support.euserv.com',
+        'Referer': url, # 关键！告诉服务器我们是从登录页面提交的
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }
     
     login_data = {
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
     }
-    f = session.post(url, headers=headers, data=login_data)
+    
+    log("正在提交登录信息...")
+    f = session.post(url, headers=headers_post, data=login_data)
     f.raise_for_status()
 
+    # --- 调试代码可以暂时保留 ---
     log("------------------ DEBUGGING START ------------------")
     log(f"页面状态码 (Status Code): {f.status_code}")
-    log(f"页面响应头 (Headers): {f.headers}")
     log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
     log(f"页面内容预览 (前500字符): \n{f.text[:500]}")
     log("------------------- DEBUGGING END -------------------")
 
+    # --- 后续判断逻辑保持不变 ---
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "solve the following captcha" not in f.text:
-            log("登录失败，响应页面既不包含成功标识，也不包含验证码。")
+            log("登录失败，响应页面既不包含成功标识，也不包含验证码。(详情请看上面的DEBUG信息)")
             return "-1", session
         else:
             log("检测到验证码，正在处理...")
             captcha_code = solve_captcha(session, captcha_image_url)
             log(f"验证码计算结果是: {captcha_code}")
-
+            
+            # 提交验证码时也使用更完整的Headers
             f2 = session.post(
-                url, headers=headers,
+                url, headers=headers_post,
                 data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
             )
             if "solve the following captcha" not in f2.text:
