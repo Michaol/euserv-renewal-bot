@@ -162,9 +162,15 @@ def login(username, password):
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
 
+log("------------------ DEBUGGING START ------------------")  
+log(f"页面状态码 (Status Code): {f.status_code}")
+log(f"页面响应头 (Headers): {f.headers}")
+log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
+log(f"页面内容预览 (前500字符): \n{f.text[:500]}")
+log("------------------- DEBUGGING END -------------------")
+
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "solve the following captcha" not in f.text:
-            log(f"!!! 未知页面内容如下 !!!\n{f.text}\n--- 未知页面内容结束 ---")
             log("登录失败，响应页面既不包含成功标识，也不包含验证码。")
             return "-1", session
         else:
