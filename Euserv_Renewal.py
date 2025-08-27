@@ -12,7 +12,6 @@ import email
 from datetime import date
 from playwright.sync_api import sync_playwright
 
-# --- 配置区域 ---
 EUSERV_USERNAME = os.getenv('EUSERV_USERNAME')
 EUSERV_PASSWORD = os.getenv('EUSERV_PASSWORD')
 CAPTCHA_USERID = os.getenv('CAPTCHA_USERID')
@@ -30,7 +29,6 @@ WAITING_TIME_OF_PIN = 15
 def log(info: str):
     print(info)
 
-# --- 核心功能函数 ---
 def solve_captcha(image_bytes):
     log("正在调用TrueCaptcha API...")
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
@@ -62,14 +60,20 @@ def login(username, password):
         try:
             log("正在导航到登录页面...")
             page.goto("https://support.euserv.com/", timeout=60000)
+            
             log("正在等待登录表单元素可见...")
-            page.wait_for_selector('input[type="password"]', timeout=30000)
+            page.wait_for_selector('input[name="password"]', timeout=30000)
             log("登录页面加载完成。")
 
-            page.get_by_label("Email address or customer ID").fill(username)
-            page.get_by_label("Password").fill(password)
+            log("正在填充用户名...")
+            page.locator('input[name="email"]').fill(username)
+            
+            log("正在填充密码...")
+            page.locator('input[name="password"]').fill(password)
+            
             log("正在点击登录按钮...")
-            page.get_by_role("button", name="Login").click()
+            page.locator('input[type="submit"][value="Login"]').click()
+
             page.wait_for_load_state('networkidle', timeout=30000)
             content = page.content()
 
