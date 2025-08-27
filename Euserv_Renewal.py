@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# 版本说明: 最终版，增加了邮件通知功能。
+# 版本说明: 最终整合版。基于成功的requests登录逻辑，并增加了邮件通知功能。
 
 import os
 import re
@@ -11,10 +11,10 @@ from bs4 import BeautifulSoup
 import imaplib
 import email
 from datetime import date
-import smtplib # <-- 新增import
-from email.mime.text import MIMEText # <-- 新增import
+import smtplib
+from email.mime.text import MIMEText
 
-# --- 配置区域 ---
+# --- 1. 配置区域 ---
 EUSERV_USERNAME = os.getenv('EUSERV_USERNAME')
 EUSERV_PASSWORD = os.getenv('EUSERV_PASSWORD')
 CAPTCHA_USERID = os.getenv('CAPTCHA_USERID')
@@ -22,43 +22,41 @@ CAPTCHA_APIKEY = os.getenv('CAPTCHA_APIKEY')
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
-NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL') # <-- 新增读取Secret
+NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL') # <-- 新增
 
+# --- 2. 常量设置 ---
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/95.0.4638.69 Safari/537.36"
 )
+LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 15
 
-# --- 日志收集 ---
+# --- 3. 日志与邮件 ---
 LOG_MESSAGES = [] # <-- 新增日志收集列表
 
 def log(info: str):
     print(info)
     LOG_MESSAGES.append(info) # <-- 修改：将日志存入列表
 
-# --- 新增邮件发送函数 ---
 def send_status_email(subject_status, log_content):
-    if not NOTIFICATION_EMAIL:
-        log("未配置NOTIFICATION_EMAIL, 跳过发送邮件。")
+    if not (NOTIFICATION_EMAIL and EMAIL_USERNAME and EMAIL_PASSWORD):
+        log("邮件通知所需的一个或多个Secrets未设置，跳过发送邮件。")
         return
 
     log("正在准备发送状态通知邮件...")
-    
     sender = EMAIL_USERNAME
     recipient = NOTIFICATION_EMAIL
     subject = f"Euserv 续约脚本运行报告 - {subject_status}"
     body = "Euserv 自动续约脚本本次运行的详细日志如下：\n\n" + log_content
-
     msg = MIMEText(body, 'plain', 'utf-8')
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = recipient
 
     try:
-        # 连接到 Gmail SMTP 服务器
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls() # 启动TLS加密
+        server = smtplib.SMTP(EMAIL_HOST.replace("imap", "smtp"), 587)
+        server.starttls()
         server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
         server.sendmail(sender, [recipient], msg.as_string())
         server.quit()
@@ -66,12 +64,28 @@ def send_status_email(subject_status, log_content):
     except Exception as e:
         log(f"❌ 发送邮件失败: {e}")
 
-# --- 核心功能函数 (login, solve_captcha, get_pin_from_gmail, get_servers, renew, check_status_after_renewal) ---
-# ... 这些函数无需任何改动，此处省略以保持简洁 ...
-# (请确保您使用的是我们之前最终确定的Playwright版本login函数以及其他配套函数)
-def solve_captcha(image_bytes):
-    log("正在调用TrueCaptcha API...")
-    encoded_string = base64.b64encode(image_bytes).decode('ascii')
+# --- 4. 装饰器 ---
+def login_retry(max_retry):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for i in range(max_retry):
+                if i > 0:
+                    log(f"登录尝试第 {i + 1}/{max_retry} 次...")
+                    time.sleep(5)
+                sess_id, session = func(*args, **kwargs)
+                if sess_id != "-1":
+                    return sess_id, session
+            log("登录失败次数过多，退出脚本。")
+            return "-1", None
+        return wrapper
+    return decorator
+
+# --- 5. 核心功能函数 ---
+
+def solve_captcha(session, captcha_image_url):
+    response = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
+    response.raise_for_status()
+    encoded_string = base64.b64encode(response.content).decode('ascii')
     url = 'https://api.apitruecaptcha.org/one/gettext'
     data = {'userid': CAPTCHA_USERID, 'apikey': CAPTCHA_APIKEY, 'data': encoded_string}
     api_response = requests.post(url=url, json=data)
@@ -88,59 +102,46 @@ def solve_captcha(image_bytes):
     except Exception as e:
         raise ValueError(f"无法计算识别出的数学表达式 '{captcha_text}': {e}")
 
+@login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
-    log("步骤 1/7: 开始Playwright浏览器登录流程...")
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(user_agent=USER_AGENT)
-        page = context.new_page()
-        try:
-            log("正在导航到登录页面...")
-            page.goto("https://support.euserv.com/", timeout=60000)
-            log("正在等待登录表单元素可见...")
-            page.wait_for_selector('input[name="password"]', timeout=30000)
-            log("登录页面加载完成。")
-            log("正在填充用户名...")
-            page.locator('input[name="email"]').fill(username)
-            log("正在填充密码...")
-            page.locator('input[name="password"]').fill(password)
-            log("正在点击登录按钮...")
-            page.locator('input[type="submit"][value="Login"]').click()
-            page.wait_for_load_state('networkidle', timeout=30000)
-            content = page.content()
-            if "solve the following captcha" in content:
-                log("检测到验证码，正在处理...")
-                img_locator = page.locator('img[src*="securimage_show.php"]')
-                image_bytes = img_locator.screenshot()
-                captcha_answer = solve_captcha(image_bytes)
-                log(f"验证码计算结果是: {captcha_answer}")
-                page.fill('input[name="captcha_code"]', str(captcha_answer))
-                page.get_by_role("button", name="Login").click()
-                page.wait_for_load_state('networkidle', timeout=30000)
-                content = page.content()
-            if "Hello" in content or "Confirm or change your customer data here" in content:
-                log("🎉 Playwright登录成功！")
-                final_sess_id_match = re.search(r'name="sess_id" value="(\w+)"', content)
-                if not final_sess_id_match: raise ValueError("登录成功但无法找到最终的sess_id")
-                session = requests.Session()
-                session.cookies.update({c['name']: c['value'] for c in context.cookies()})
-                browser.close()
-                return final_sess_id_match.group(1), session
+    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
+    url = "https://support.euserv.com/index.iphp"
+    captcha_image_url = "https://support.euserv.com/securimage_show.php"
+    session = requests.Session()
+    sess_res = session.get(url, headers=headers)
+    sess_res.raise_for_status()
+    cookies = sess_res.cookies
+    sess_id = cookies.get('PHPSESSID')
+    if not sess_id:
+        raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
+    session.get("https://support.euserv.com/pic/logo_small.png", headers=headers)
+    login_data = {
+        "email": username, "password": password, "form_selected_language": "en",
+        "Submit": "Login", "subaction": "login", "sess_id": sess_id,
+    }
+    f = session.post(url, headers=headers, data=login_data)
+    f.raise_for_status()
+    if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
+        if "To finish the login process please solve the following captcha." not in f.text:
+            log(f"登录失败，未知响应页面。状态码: {f.status_code}")
+            return "-1", session
+        else:
+            log("检测到验证码，正在处理...")
+            captcha_code = solve_captcha(session, captcha_image_url)
+            log(f"验证码计算结果是: {captcha_code}")
+            f2 = session.post(
+                url, headers=headers,
+                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
+            )
+            if "To finish the login process please solve the following captcha." not in f2.text:
+                log("验证通过")
+                return sess_id, session
             else:
-                log("❌ Playwright登录失败，最终页面不包含成功标识。")
-                page.screenshot(path='error_screenshot.png')
-                log("已保存错误截图。在工作流页面可以下载此文件进行分析。")
-                browser.close()
-                return "-1", None
-        except Exception as e:
-            log(f"❌ Playwright执行出错: {e}")
-            try:
-                page.screenshot(path='error_screenshot.png')
-                log("已保存错误截图。在工作流页面可以下载此文件进行分析。")
-            except: pass
-            browser.close()
-            return "-1", None
+                log("验证失败")
+                return "-1", session
+    else:
+        log("登录成功")
+        return sess_id, session
 
 def get_pin_from_gmail(host, username, password):
     log("正在连接Gmail获取PIN码...")
@@ -178,13 +179,15 @@ def get_pin_from_gmail(host, username, password):
     raise Exception("多次尝试后仍无法获取PIN码邮件。")
 
 def get_servers(sess_id, session):
+    log("正在访问服务器列表页面...")
     servers_to_renew = []
-    url = f"https://support.euserv.com/customer_contract.php"
+    url = f"https://support.euserv.com/index.iphp?sess_id={sess_id}"
     headers = {"user-agent": USER_AGENT}
     f = session.get(url=url, headers=headers)
     f.raise_for_status()
     soup = BeautifulSoup(f.text, "html.parser")
-    for tr in soup.select("#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr"):
+    selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
+    for tr in soup.select(selector):
         server_id_tag = tr.select_one(".td-z1-sp1-kc")
         if not server_id_tag: continue
         server_id = server_id_tag.get_text(strip=True)
@@ -194,39 +197,38 @@ def get_servers(sess_id, session):
     return servers_to_renew
 
 def renew(sess_id, session, order_id):
+    log(f"正在为服务器 {order_id} 触发续订流程...")
     url = "https://support.euserv.com/index.iphp"
     headers = {"user-agent": USER_AGENT, "Host": "support.euserv.com", "origin": "https://support.euserv.com"}
-    data = {
+    data1 = {
         "Submit": "Extend contract", "sess_id": sess_id, "ord_no": order_id,
         "subaction": "choose_order", "choose_order_subaction": "show_contract_details",
     }
-    session.post(url, headers=headers, data=data)
-    session.post(
-        url, headers=headers,
-        data={
-            "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
-            "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
-        },
-    )
+    session.post(url, headers=headers, data=data1)
+    data2 = {
+        "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
+        "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
+    }
+    session.post(url, headers=headers, data=data2)
     time.sleep(WAITING_TIME_OF_PIN)
     pin = get_pin_from_gmail(EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD)
-    data = {
+    data3 = {
         "auth": pin, "sess_id": sess_id, "subaction": "kc2_security_password_get_token",
         "prefix": "kc2_customer_contract_details_extend_contract_", "type": 1,
         "ident": f"kc2_customer_contract_details_extend_contract_{order_id}",
     }
-    f = session.post(url, headers=headers, data=data)
+    f = session.post(url, headers=headers, data=data3)
     f.raise_for_status()
     response_json = f.json()
     if response_json.get("rs") != "success":
         raise Exception(f"获取Token失败: {f.text}")
     token = response_json["token"]["value"]
     log("成功获取续期Token")
-    data = {
+    data4 = {
         "sess_id": sess_id, "ord_id": order_id,
         "subaction": "kc2_customer_contract_details_extend_contract_term", "token": token,
     }
-    final_res = session.post(url, headers=headers, data=data)
+    final_res = session.post(url, headers=headers, data=data4)
     final_res.raise_for_status()
     return True
 
@@ -239,7 +241,6 @@ def check_status_after_renewal(sess_id, session):
         for server_id in servers_still_to_renew:
             log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
 
-# --- 修改后的 main 函数 ---
 def main():
     if not all([EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
         log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
@@ -250,7 +251,7 @@ def main():
         log("--- 开始 Euserv 自动续期任务 ---")
         sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
         if sess_id == "-1" or s is None:
-            raise Exception("登录失败，脚本终止。")
+            raise Exception("登录失败")
             
         servers_to_renew = get_servers(sess_id, s)
         
@@ -261,14 +262,11 @@ def main():
             for server_id in servers_to_renew:
                 log(f"\n🔄 --- 正在为服务器 {server_id} 执行续期 ---")
                 try:
-                    if renew(sess_id, s, server_id):
-                        log(f"✔️ 服务器 {server_id} 的续期流程已成功提交。")
-                    else:
-                        # 这种情况理论上不会发生，因为renew函数失败会抛异常
-                        log(f"❌ 服务器 {server_id} 的续期流程提交失败。")
+                    renew(sess_id, s, server_id)
+                    log(f"✔️ 服务器 {server_id} 的续期流程已成功提交。")
                 except Exception as e:
                     log(f"❌ 为服务器 {server_id} 续期时发生严重错误: {e}")
-                    status = "失败" # 将最终状态标记为失败
+                    status = "失败"
         
         time.sleep(15)
         check_status_after_renewal(sess_id, s)
@@ -277,10 +275,9 @@ def main():
     except Exception as e:
         status = "失败"
         log(f"❗ 脚本执行过程中发生致命错误: {e}")
-        # 在 finally 之外也发送邮件，确保即使 main 异常退出也能收到通知
-        send_status_email(status, "\n".join(LOG_MESSAGES))
-        raise # 重新抛出异常以使GitHub Action失败
-
+        # 重新抛出异常以使GitHub Action正确地标记为失败
+        # finally块中的邮件发送仍然会执行
+        raise 
     finally:
         # 无论成功或失败，最后都发送邮件
         send_status_email(status, "\n".join(LOG_MESSAGES))
