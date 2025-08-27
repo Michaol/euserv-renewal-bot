@@ -2,6 +2,7 @@ name: Euserv VPS Renewal
 
 on:
   schedule:
+    # 在每周日的00:00 (UTC) 运行
     - cron: '0 0 * * 0'
   workflow_dispatch:
 
@@ -26,11 +27,11 @@ jobs:
         env:
           EUSERV_USERNAME: ${{ secrets.EUSERV_USERNAME }}
           EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+          EUSERV_2FA: ${{ secrets.EUSERV_2FA }}
           CAPTCHA_USERID: ${{ secrets.CAPTCHA_USERID }}
           CAPTCHA_APIKEY: ${{ secrets.CAPTCHA_APIKEY }}
           EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-
         run: python Euserv_Renewal.py
