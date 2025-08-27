@@ -1,13 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# 版本说明: 本脚本基于用户提供的 Github_Action.py 文件进行精简，用于最终的 requests 库登录测试。
 
-"""
-euserv 自动续期脚本 (单账户Gmail版)
-功能:
-- 使用我们之前的Gmail IMAP方式获取PIN码。
-- 保留了最精确的登录和续期逻辑（包括获取token）。
-- 移除了多账户、Telegram、Mailparser等功能。
-- 修正并简化了TrueCaptcha API的调用。
-"""
 import os
 import re
 import json
@@ -15,34 +8,53 @@ import time
 import base64
 import requests
 from bs4 import BeautifulSoup
-import imaplib
-import email
-from datetime import date
 
-# --- 配置区域 ---
-
-# 1. GitHub Secrets 中读取的凭据
+# --- 1. GitHub Secrets 中读取的凭据 ---
 EUSERV_USERNAME = os.getenv('EUSERV_USERNAME')
 EUSERV_PASSWORD = os.getenv('EUSERV_PASSWORD')
-TRUECAPTCHA_USERID = os.getenv('CAPTCHA_USERID') # 注意这里Secret名称我们之前定的是CAPTCHA_USERID
-TRUECAPTCHA_APIKEY = os.getenv('CAPTCHA_APIKEY') # 注意这里Secret名称我们之前定的是CAPTCHA_APIKEY
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+TRUECAPTCHA_USERID = os.getenv('CAPTCHA_USERID')
+TRUECAPTCHA_APIKEY = os.getenv('CAPTCHA_APIKEY')
 
-# 2. 常量设置
+# --- 2. 常量设置 ---
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/95.0.4638.69 Safari/537.36"
 )
 LOGIN_MAX_RETRY_COUNT = 3
-WAITING_TIME_OF_PIN = 15 # 等待PIN邮件到达的时间（秒）
-
-# --- 日志与装饰器 ---
 
 def log(info: str):
     """格式化日志输出"""
     print(info)
+
+# --- 核心功能函数 (完全来自您提供的 Github_Action.py) ---
+
+def captcha_solver(session, captcha_image_url):
+    """验证码解决器"""
+    response = session.get(captcha_image_url)
+    encoded_string = base64.b64encode(response.content).decode('ascii')
+    url = "https://api.apitruecaptcha.org/one/gettext"
+    data = {
+        "userid": TRUECAPTCHA_USERID,
+        "apikey": TRUECAPTCHA_APIKEY,
+        "data": encoded_string,
+    }
+    r = requests.post(url=url, json=data)
+    return r.json()
+
+def handle_captcha_solved_result(solved):
+    """处理验证码计算"""
+    if "result" in solved:
+        text = solved["result"]
+        # 尝试直接计算
+        try:
+            # 替换 'x' 和 'X' 为 '*'
+            text_to_eval = text.replace('x', '*').replace('X', '*')
+            return str(eval(text_to_eval))
+        except:
+            # 如果计算失败，返回原始文本
+            return text
+    else:
+        raise KeyError(f"未在验证码响应中找到'result': {solved}")
 
 def login_retry(max_retry):
     """登录重试装饰器"""
@@ -55,156 +67,68 @@ def login_retry(max_retry):
                 sess_id, session = func(*args, **kwargs)
                 if sess_id != "-1":
                     return sess_id, session
-            log("登录失败次数过多，退出脚本。")
+            log("登录失败次数过多，脚本终止。")
             return "-1", None
         return wrapper
     return decorator
 
-# --- 核心功能函数 ---
-
-def solve_captcha(session, captcha_image_url):
-    """使用TrueCaptcha API解决验证码 (简化修正版)"""
-    log("正在调用TrueCaptcha API...")
-    
-    response = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
-    response.raise_for_status()
-    
-    encoded_string = base64.b64encode(response.content).decode('ascii')
-    url = 'https://api.apitruecaptcha.org/one/gettext'
-    data = {
-        'userid': TRUECAPTCHA_USERID,
-        'apikey': TRUECAPTCHA_APIKEY,
-        'data': encoded_string
-    }
-    
-    api_response = requests.post(url=url, json=data)
-    api_response.raise_for_status()
-    result_data = api_response.json()
-
-    if result_data.get('status') == 'error':
-        raise Exception(f"CAPTCHA API返回错误: {result_data.get('message')}")
-    
-    captcha_text = result_data.get('result')
-    if not captcha_text:
-        raise Exception(f"未能从API响应中获取验证码结果: {result_data}")
-
-    log(f"API识别结果: {captcha_text}")
-    
-    try:
-        # 使用 eval() 安全计算结果
-        return str(eval(captcha_text))
-    except Exception as e:
-        raise ValueError(f"无法计算识别出的数学表达式 '{captcha_text}': {e}")
-
-
-def get_pin_from_gmail(host, username, password):
-    """
-    我们之前的Gmail PIN获取函数，用于替代Mailparser
-    """
-    log("正在连接Gmail获取PIN码...")
-    today_str = date.today().strftime('%d-%b-%Y')
-    
-    for i in range(3): # 尝试三次
-        try:
-            with imaplib.IMAP4_SSL(host) as mail:
-                mail.login(username, password)
-                mail.select('inbox')
-                search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
-                status, messages = mail.search(None, search_criteria)
-                
-                if status == 'OK' and messages[0]:
-                    latest_email_id = messages[0].split()[-1]
-                    _, data = mail.fetch(latest_email_id, '(RFC822)')
-                    raw_email = data[0][1].decode('utf-8')
-                    msg = email.message_from_string(raw_email)
-                    
-                    body = ""
-                    if msg.is_multipart():
-                        for part in msg.walk():
-                            if part.get_content_type() == "text/plain":
-                                body = part.get_payload(decode=True).decode()
-                                break
-                    else:
-                        body = msg.get_payload(decode=True).decode()
-
-                    pin_match = re.search(r"PIN:\s*\n?(\d{6})", body, re.IGNORECASE)
-                    if pin_match:
-                        pin = pin_match.group(1)
-                        log(f"成功从Gmail获取PIN码: {pin}")
-                        return pin
-            
-            log(f"第{i+1}次尝试：未找到PIN邮件，等待30秒...")
-            time.sleep(30)
-        except Exception as e:
-            log(f"获取PIN码时发生错误: {e}")
-            raise
-            
-    raise Exception("多次尝试后仍无法获取PIN码邮件。")
-
-
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
-    """登录EUserv并获取session (增强版Headers)"""
-    session = requests.Session()
+    """登录 EUserv 并获取 session"""
+    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
     url = "https://support.euserv.com/index.iphp"
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
+    session = requests.Session()
 
-    # 1. 初始GET请求，获取会话ID和Cookies
-    # 像浏览器一样，先访问一次页面
-    headers_get = {
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-    }
-    log("步骤 1/7: 开始登录流程，正在访问主页...")
-    sess_res = session.get(url, headers=headers_get)
+    sess_res = session.get(url, headers=headers)
     sess_res.raise_for_status()
-    sess_id_match = re.search(r'name="sess_id" value="(\w+)"', sess_res.text)
-    if not sess_id_match: raise ValueError("无法在初始页面中找到sess_id")
-    sess_id = sess_id_match.group(1)
 
-    # 2. 构造更逼真的POST头信息
-    headers_post = {
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-        'Origin': 'https://support.euserv.com',
-        'Referer': url, # 关键！告诉服务器我们是从登录页面提交的
-        'Content-Type': 'application/x-www-form-urlencoded',
-    }
-    
+    # 从响应头中提取 PHPSESSID
+    cookies = sess_res.cookies
+    sess_id = cookies.get('PHPSESSID')
+    if not sess_id:
+         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
+
     login_data = {
-        "email": username, "password": password, "form_selected_language": "en",
-        "Submit": "Login", "subaction": "login", "sess_id": sess_id,
+        "email": username,
+        "password": password,
+        "form_selected_language": "en",
+        "Submit": "Login",
+        "subaction": "login",
+        "sess_id": sess_id,
     }
-    
+
     log("正在提交登录信息...")
-    f = session.post(url, headers=headers_post, data=login_data)
+    f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
 
-    # --- 调试代码可以暂时保留 ---
+    # --- 调试代码 ---
     log("------------------ DEBUGGING START ------------------")
     log(f"页面状态码 (Status Code): {f.status_code}")
     log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
     log(f"页面内容预览 (前500字符): \n{f.text[:500]}")
     log("------------------- DEBUGGING END -------------------")
 
-    # --- 后续判断逻辑保持不变 ---
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
-        if "solve the following captcha" not in f.text:
-            log("登录失败，响应页面既不包含成功标识，也不包含验证码。(详情请看上面的DEBUG信息)")
+        if "To finish the login process please solve the following captcha." not in f.text:
+            log("登录失败，响应页面既不包含成功标识，也不包含验证码。")
             return "-1", session
         else:
             log("检测到验证码，正在处理...")
-            captcha_code = solve_captcha(session, captcha_image_url)
+            solved_result = captcha_solver(session, captcha_image_url)
+            captcha_code = handle_captcha_solved_result(solved_result)
             log(f"验证码计算结果是: {captcha_code}")
-            
-            # 提交验证码时也使用更完整的Headers
+
             f2 = session.post(
-                url, headers=headers_post,
-                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
+                url,
+                headers=headers,
+                data={
+                    "subaction": "login",
+                    "sess_id": sess_id,
+                    "captcha_code": captcha_code,
+                },
             )
-            if "solve the following captcha" not in f2.text:
+            if "To finish the login process please solve the following captcha." not in f2.text:
                 log("验证通过")
                 return sess_id, session
             else:
@@ -214,126 +138,22 @@ def login(username, password):
         log("登录成功")
         return sess_id, session
 
-def get_servers(sess_id, session):
-    """获取可续约的服务器列表"""
-    servers_to_renew = []
-    # 导航到正确的合同页面
-    url = f"https://support.euserv.com/customer_contract.php?sess_id={sess_id}"
-    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
-    f = session.get(url=url, headers=headers)
-    f.raise_for_status()
-    soup = BeautifulSoup(f.text, "html.parser")
-    
-    for tr in soup.select("#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr"):
-        server_id_tag = tr.select_one(".td-z1-sp1-kc")
-        if not server_id_tag: continue
-        
-        server_id = server_id_tag.get_text(strip=True)
-        action_container = tr.select_one(".td-z1-sp2-kc .kc2_order_action_container")
-        
-        if action_container and "Contract extension possible from" not in action_container.get_text():
-            servers_to_renew.append(server_id)
-            
-    return servers_to_renew
-
-
-def renew(sess_id, session, order_id):
-    """执行完整的续期操作（包括获取token）"""
-    url = "https://support.euserv.com/index.iphp"
-    headers = {"user-agent": USER_AGENT, "Host": "support.euserv.com", "origin": "https://support.euserv.com"}
-    
-    # 1. 选择合同
-    data = {
-        "Submit": "Extend contract", "sess_id": sess_id, "ord_no": order_id,
-        "subaction": "choose_order", "choose_order_subaction": "show_contract_details",
-    }
-    session.post(url, headers=headers, data=data)
-
-    # 2. 触发'Security Check'窗口，这将自动触发'发送PIN'
-    session.post(
-        url, headers=headers,
-        data={
-            "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
-            "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
-        },
-    )
-
-    # 3. 等待并从Gmail获取PIN
-    time.sleep(WAITING_TIME_OF_PIN)
-    pin = get_pin_from_gmail(EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD)
-
-    # 4. 使用PIN获取token
-    data = {
-        "auth": pin, "sess_id": sess_id, "subaction": "kc2_security_password_get_token",
-        "prefix": "kc2_customer_contract_details_extend_contract_", "type": 1,
-        "ident": f"kc2_customer_contract_details_extend_contract_{order_id}",
-    }
-    f = session.post(url, headers=headers, data=data)
-    f.raise_for_status()
-    
-    response_json = f.json()
-    if response_json.get("rs") != "success":
-        raise Exception(f"获取Token失败: {f.text}")
-    token = response_json["token"]["value"]
-    log("成功获取续期Token")
-
-    # 5. 使用token执行最终续期
-    data = {
-        "sess_id": sess_id, "ord_id": order_id,
-        "subaction": "kc2_customer_contract_details_extend_contract_term", "token": token,
-    }
-    final_res = session.post(url, headers=headers, data=data)
-    final_res.raise_for_status()
-    
-    # 返回True表示成功发起续期请求
-    return True
-
-
-def check_status_after_renewal(sess_id, session):
-    """续期后再次检查状态以确认结果"""
-    log("正在进行续期后状态检查...")
-    servers_still_to_renew = get_servers(sess_id, session)
-    if not servers_still_to_renew:
-        log("🎉 所有服务器均已成功续订或无需续订！")
-    else:
-        for server_id in servers_still_to_renew:
-            log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
-
-
 def main():
-    """主函数，处理单个账户的续期"""
-    if not all([EUSERV_USERNAME, EUSERV_PASSWORD, TRUECAPTCHA_USERID, TRUECAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
+    """主函数"""
+    log("--- 开始 Euserv 自动续期任务 (基于 Github_Action.py 简化版) ---")
+    
+    if not all([EUSERV_USERNAME, EUSERV_PASSWORD, TRUECAPTCHA_USERID, TRUECAPTCHA_APIKEY]):
         log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
         exit(1)
-    
-    log("--- 开始 Euserv 自动续期任务 ---")
-    
+
     sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
+    
     if sess_id == "-1" or s is None:
         log("❗ 登录失败，脚本终止。")
         exit(1)
-        
-    servers_to_renew = get_servers(sess_id, s)
     
-    if not servers_to_renew:
-        log("✅ 检测到所有服务器均无需续期。")
-    else:
-        log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {', '.join(servers_to_renew)}")
-        for server_id in servers_to_renew:
-            log(f"\n🔄 --- 正在为服务器 {server_id} 执行续期 ---")
-            try:
-                if renew(sess_id, s, server_id):
-                    log(f"✔️ 服务器 {server_id} 的续期流程已成功提交。")
-                else:
-                    log(f"❌ 服务器 {server_id} 的续期流程提交失败。")
-            except Exception as e:
-                log(f"❌ 为服务器 {server_id} 续期时发生严重错误: {e}")
-            time.sleep(5) # 每个服务器操作之间稍作停顿
-
-    time.sleep(15) # 等待Euserv后台处理
-    check_status_after_renewal(sess_id, s)
-    log("\n🏁 --- 所有工作完成 ---")
-
+    log("🎉 登录测试成功！可以继续构建后续逻辑。")
+    # 此处可以继续添加 get_servers, renew 等函数的调用
 
 if __name__ == "__main__":
      main()
