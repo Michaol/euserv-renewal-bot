@@ -28,7 +28,8 @@
 ### 功能特性
 
 * 通过 GitHub Actions 自动续约 Euserv 免费VPS。
-* 处理登录、会话及数学验证码（通过 TrueCaptcha API）。
+* 处理登录、会话及**两步验证(2FA)**。
+* 如遇图片验证码，则调用 TrueCaptcha API 自动识别。
 * 通过 IMAP 连接 Gmail 邮箱，自动获取续约PIN码。
 * 完整实现包含Token验证的精确续约流程。
 * 每次运行后通过邮件发送状态报告。
@@ -53,12 +54,13 @@
 
 #### 第2步：配置 GitHub Secrets
 
-这是最关键的步骤。请进入您 Fork 后的仓库，点击 `Settings` -> `Secrets and variables` -> `Actions`，然后点击 `New repository secret` 按钮，逐一添加以下 **8个** Secret：
+这是最关键的步骤。请进入您 Fork 后的仓库，点击 `Settings` -> `Secrets and variables` -> `Actions`，然后点击 `New repository secret` 按钮，逐一添加以下 Secret：
 
 | Secret 名称          | 示例值                               | 描述                               |
 | -------------------- | -------------------------------------- | ---------------------------------- |
 | `EUSERV_USERNAME`    | `your_euserv_username`                 | 用于登录 Euserv。                  |
 | `EUSERV_PASSWORD`    | `your_euserv_password`                 | 用于登录 Euserv。                  |
+| `EUSERV_2FA`         | `ABCD1234EFGH5678`                     | **(可选)** 您在Euserv后台开启2FA时获得的**Setup key**。 |
 | `CAPTCHA_USERID`     | `your_captcha_userid`                  | 您在 TrueCaptcha 注册的 `userid`。 |
 | `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`                 | 您的 TrueCaptcha `apikey`。        |
 | `EMAIL_HOST`         | `imap.gmail.com`                       | 您的邮箱 IMAP 服务器地址。         |
@@ -67,6 +69,8 @@
 | `NOTIFICATION_EMAIL` | `your_notify_email@example.com`        | 用于接收运行报告的邮箱地址。       |
 
 **请务必确保 Secret 名称与上表完全一致，并将示例值替换为您自己的真实信息。**
+
+> **关于2FA**: 强烈建议您在Euserv后台开启2FA。这不仅能极大地增强您账户的安全性，还很有可能让服务器信任您的登录行为，从而**跳过图片验证码识别**，为您节省API调用费用。
 
 #### 第3步：手动运行工作流进行测试
 
@@ -98,7 +102,8 @@
 ### Features
 
 * Automated renewal of Euserv free VPS via GitHub Actions.
-* Handles login, sessions, and mathematical CAPTCHAs (via TrueCaptcha API).
+* Handles login, sessions, and **Two-Factor Authentication (2FA)**.
+* Solves CAPTCHAs automatically via the TrueCaptcha API if encountered.
 * Retrieves renewal PINs from a Gmail account via IMAP.
 * Implements the complete and precise renewal workflow, including token exchange.
 * Sends a run status report to your email after each execution.
@@ -119,16 +124,17 @@ Please follow these steps carefully to get the workflow running.
 
 Click the **`Fork`** button at the top-right of this page to copy this project to your own GitHub account.
 
-> **Security Recommendation**: Please ensure you have not accidentally committed any personal credentials to the codebase at any time.  
+> **Security Recommendation**: Please ensure you have not accidentally committed any personal credentials to the codebase at any time.
 
 #### Step 2: Configure GitHub Secrets
 
-This is the most critical step. Navigate to your forked repository, go to `Settings` -> `Secrets and variables` -> `Actions`, and click `New repository secret` to add each of the following **8 secrets**:
+This is the most critical step. Navigate to your forked repository, go to `Settings` -> `Secrets and variables` -> `Actions`, and click `New repository secret` to add each of the following secrets:
 
-| Secret 名称          | Example Value                          | Description                              |
+| Secret Name          | Example Value                          | Description                              |
 | -------------------- | -------------------------------------- | ---------------------------------------- |
 | `EUSERV_USERNAME`    | `your_euserv_username`                 | Your username for EUserv.                |
 | `EUSERV_PASSWORD`    | `your_euserv_password`                 | Your password for EUserv.                |
+| `EUSERV_2FA`         | `ABCD1234EFGH5678`                     | **(Optional)** The **Setup key** you get when enabling 2FA in your Euserv account. |
 | `CAPTCHA_USERID`     | `your_captcha_userid`                  | Your `userid` from TrueCaptcha.          |
 | `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`                 | Your `apikey` from TrueCaptcha.          |
 | `EMAIL_HOST`         | `imap.gmail.com`                       | Your email provider's IMAP server.       |
@@ -137,6 +143,8 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 | `NOTIFICATION_EMAIL` | `your_notify_email@example.com`        | The email address to receive status reports. |
 
 **Ensure the secret names are copied exactly and replace the example values with your own real information.**
+
+> **About 2FA**: It is highly recommended to enable 2FA in your Euserv account. Not only does it significantly improve your account security, but it may also cause the server to trust your login and **skip the image CAPTCHA**, saving you API costs.
 
 #### Step 3: Manually Run the Workflow to Test
 
