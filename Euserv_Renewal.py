@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# 版本说明: 最终修正版，统一了CAPTCHA相关的变量名以解决 NameError。
+# 版本说明: 最终版，使用Playwright进行浏览器模拟登录，以绕过JS质询。
 
 import os
 import re
@@ -11,14 +11,13 @@ from bs4 import BeautifulSoup
 import imaplib
 import email
 from datetime import date
+from playwright.sync_api import sync_playwright
 
 # --- 配置区域 ---
 EUSERV_USERNAME = os.getenv('EUSERV_USERNAME')
 EUSERV_PASSWORD = os.getenv('EUSERV_PASSWORD')
-# --- ↓↓↓ 名称已统一 ↓↓↓ ---
 CAPTCHA_USERID = os.getenv('CAPTCHA_USERID')
 CAPTCHA_APIKEY = os.getenv('CAPTCHA_APIKEY')
-# --- ↑↑↑ 名称已统一 ↑↑↑ ---
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
@@ -27,35 +26,17 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/95.0.4638.69 Safari/537.36"
 )
-LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 15
 
 def log(info: str):
     print(info)
-
-def login_retry(max_retry):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            for i in range(max_retry):
-                if i > 0:
-                    log(f"登录尝试第 {i + 1}/{max_retry} 次...")
-                    time.sleep(5)
-                sess_id, session = func(*args, **kwargs)
-                if sess_id != "-1":
-                    return sess_id, session
-            log("登录失败次数过多，退出脚本。")
-            return "-1", None
-        return wrapper
-    return decorator
 
 # --- 核心功能函数 ---
 def solve_captcha(image_bytes):
     log("正在调用TrueCaptcha API...")
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
     url = 'https://api.apitruecaptcha.org/one/gettext'
-    # --- ↓↓↓ 名称已统一 ↓↓↓ ---
     data = {'userid': CAPTCHA_USERID, 'apikey': CAPTCHA_APIKEY, 'data': encoded_string}
-    # --- ↑↑↑ 名称已统一 ↑↑↑ ---
     
     api_response = requests.post(url=url, json=data)
     api_response.raise_for_status()
@@ -73,7 +54,62 @@ def solve_captcha(image_bytes):
     except Exception as e:
         raise ValueError(f"无法计算识别出的数学表达式 '{captcha_text}': {e}")
 
-# (get_pin_from_gmail, login, get_servers, renew, check_status_after_renewal 函数保持不变)
+def login(username, password):
+    log("步骤 1/7: 开始Playwright浏览器登录流程...")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent=USER_AGENT)
+        page = context.new_page()
+        try:
+            log("正在导航到登录页面...")
+            page.goto("https://support.euserv.com/", timeout=60000)
+            page.wait_for_selector('form[name="login"]', timeout=30000)
+            log("登录页面加载完成。")
+
+            page.fill('input[name="username"]', username)
+            page.fill('input[name="password"]', password)
+            log("正在点击登录按钮...")
+            page.click('button[type="submit"]')
+            page.wait_for_load_state('networkidle', timeout=30000)
+            content = page.content()
+
+            if "solve the following captcha" in content:
+                log("检测到验证码，正在处理...")
+                img_locator = page.locator('img[src*="securimage_show.php"]')
+                image_bytes = img_locator.screenshot()
+                
+                captcha_answer = solve_captcha(image_bytes)
+                log(f"验证码计算结果是: {captcha_answer}")
+
+                page.fill('input[name="captcha_code"]', str(captcha_answer))
+                page.click('button[type="submit"]')
+                page.wait_for_load_state('networkidle', timeout=30000)
+                content = page.content()
+
+            if "Hello" in content or "Confirm or change your customer data here" in content:
+                log("🎉 Playwright登录成功！")
+                final_sess_id_match = re.search(r'name="sess_id" value="(\w+)"', content)
+                if not final_sess_id_match: raise ValueError("登录成功但无法找到最终的sess_id")
+                
+                session = requests.Session()
+                session.cookies.update({c['name']: c['value'] for c in context.cookies()})
+                browser.close()
+                return final_sess_id_match.group(1), session
+            else:
+                log("❌ Playwright登录失败，最终页面不包含成功标识。")
+                page.screenshot(path='error_screenshot.png')
+                log("已保存错误截图。在工作流页面可以下载此文件进行分析。")
+                browser.close()
+                return "-1", None
+        except Exception as e:
+            log(f"❌ Playwright执行出错: {e}")
+            try:
+                page.screenshot(path='error_screenshot.png')
+                log("已保存错误截图。在工作流页面可以下载此文件进行分析。")
+            except: pass
+            browser.close()
+            return "-1", None
+
 def get_pin_from_gmail(host, username, password):
     log("正在连接Gmail获取PIN码...")
     today_str = date.today().strftime('%d-%b-%Y')
@@ -109,50 +145,10 @@ def get_pin_from_gmail(host, username, password):
             raise
     raise Exception("多次尝试后仍无法获取PIN码邮件。")
 
-@login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
-def login(username, password):
-    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
-    url = "https://support.euserv.com/index.iphp"
-    captcha_image_url = "https://support.euserv.com/securimage_show.php"
-    session = requests.Session()
-    sess = session.get(url, headers=headers)
-    sess_id_match = re.search(r'name="sess_id" value="(\w+)"', sess.text)
-    if not sess_id_match: raise ValueError("无法找到sess_id")
-    sess_id = sess_id_match.group(1)
-    login_data = {
-        "email": username, "password": password, "form_selected_language": "en",
-        "Submit": "Login", "subaction": "login", "sess_id": sess_id,
-    }
-    f = session.post(url, headers=headers, data=login_data)
-    f.raise_for_status()
-    if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
-        if "solve the following captcha" not in f.text:
-            log("登录失败，响应页面既不包含成功标识，也不包含验证码。")
-            return "-1", session
-        else:
-            log("检测到验证码，正在处理...")
-            image_res = session.get(captcha_image_url, headers=headers)
-            image_res.raise_for_status()
-            captcha_code = solve_captcha(image_res.content)
-            log(f"验证码计算结果是: {captcha_code}")
-            f2 = session.post(
-                url, headers=headers,
-                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
-            )
-            if "solve the following captcha" not in f2.text:
-                log("验证通过")
-                return sess_id, session
-            else:
-                log("验证失败")
-                return "-1", session
-    else:
-        log("登录成功")
-        return sess_id, session
-
 def get_servers(sess_id, session):
     servers_to_renew = []
     url = f"https://support.euserv.com/customer_contract.php?sess_id={sess_id}"
-    headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
+    headers = {"user-agent": USER_AGENT}
     f = session.get(url=url, headers=headers)
     f.raise_for_status()
     soup = BeautifulSoup(f.text, "html.parser")
@@ -212,10 +208,7 @@ def check_status_after_renewal(sess_id, session):
             log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
 
 def main():
-    """主函数，处理单个账户的续期"""
-    # --- ↓↓↓ 名称已统一 ↓↓↓ ---
     if not all([EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
-    # --- ↑↑↑ 名称已统一 ↑↑↑ ---
         log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
         exit(1)
     
