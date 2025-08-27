@@ -22,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       
-      - name: Install Playwright Browsers
+      - name: Cache Playwright browsers
         id: cache-playwright
         uses: actions/cache@v4
         with:
@@ -45,3 +45,16 @@ jobs:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: python Euserv_Renewal.py
+
+      # --- ↓↓↓ 新增的关键步骤 ↓↓↓ ---
+      - name: Upload error screenshot on failure
+        # 只有在上一步（Run renewal script）失败时才执行此步骤
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          # 上传后的文件包名称
+          name: error-screenshot
+          # 要上传的文件路径（与Python脚本中保存的文件名一致）
+          path: error_screenshot.png
+          # 保留天数
+          retention-days: 5
