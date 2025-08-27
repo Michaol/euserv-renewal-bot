@@ -162,12 +162,12 @@ def login(username, password):
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
 
-log("------------------ DEBUGGING START ------------------")
-log(f"页面状态码 (Status Code): {f.status_code}")
-log(f"页面响应头 (Headers): {f.headers}")
-log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
-log(f"页面内容预览 (前500字符): \n{f.text[:500]}")
-log("------------------- DEBUGGING END -------------------")
+    log("------------------ DEBUGGING START ------------------")
+    log(f"页面状态码 (Status Code): {f.status_code}")
+    log(f"页面响应头 (Headers): {f.headers}")
+    log(f"页面内容 (f.text) 长度: {len(f.text)} characters")
+    log(f"页面内容预览 (前500字符): \n{f.text[:500]}")
+    log("------------------- DEBUGGING END -------------------")
 
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "solve the following captcha" not in f.text:
