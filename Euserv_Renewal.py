@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# 版本说明: 最终整合版。基于成功的requests登录逻辑，并增加了邮件通知功能。
+# 版本说明: 最终版，基于成功的requests登录逻辑，并增加了邮件发送前的调试日志功能。
 
 import os
 import re
@@ -22,7 +22,7 @@ CAPTCHA_APIKEY = os.getenv('CAPTCHA_APIKEY')
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
-NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL') # <-- 新增
+NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL')
 
 # --- 2. 常量设置 ---
 USER_AGENT = (
@@ -33,13 +33,21 @@ LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 15
 
 # --- 3. 日志与邮件 ---
-LOG_MESSAGES = [] # <-- 新增日志收集列表
+LOG_MESSAGES = []
 
 def log(info: str):
     print(info)
-    LOG_MESSAGES.append(info) # <-- 修改：将日志存入列表
+    LOG_MESSAGES.append(info)
 
 def send_status_email(subject_status, log_content):
+    # --- ↓↓↓ 新增的邮件Secret调试代码块 ↓↓↓ ---
+    log("------------------ DEBUGGING EMAIL SECRETS ------------------")
+    log(f"NOTIFICATION_EMAIL 的值是: '{NOTIFICATION_EMAIL}' (长度: {len(str(NOTIFICATION_EMAIL))})")
+    log(f"EMAIL_USERNAME 的值是: '{EMAIL_USERNAME}' (长度: {len(str(EMAIL_USERNAME))})")
+    log(f"EMAIL_PASSWORD 是否有值: {bool(EMAIL_PASSWORD)} (长度: {len(str(EMAIL_PASSWORD))})")
+    log("------------------- DEBUGGING END -------------------")
+    # --- ↑↑↑ 新增的邮件Secret调试代码块 ↑↑↑ ---
+
     if not (NOTIFICATION_EMAIL and EMAIL_USERNAME and EMAIL_PASSWORD):
         log("邮件通知所需的一个或多个Secrets未设置，跳过发送邮件。")
         return
@@ -55,7 +63,8 @@ def send_status_email(subject_status, log_content):
     msg['To'] = recipient
 
     try:
-        server = smtplib.SMTP(EMAIL_HOST.replace("imap", "smtp"), 587)
+        smtp_host = EMAIL_HOST.replace("imap", "smtp")
+        server = smtplib.SMTP(smtp_host, 587)
         server.starttls()
         server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
         server.sendmail(sender, [recipient], msg.as_string())
@@ -201,86 +210,4 @@ def renew(sess_id, session, order_id):
     url = "https://support.euserv.com/index.iphp"
     headers = {"user-agent": USER_AGENT, "Host": "support.euserv.com", "origin": "https://support.euserv.com"}
     data1 = {
-        "Submit": "Extend contract", "sess_id": sess_id, "ord_no": order_id,
-        "subaction": "choose_order", "choose_order_subaction": "show_contract_details",
-    }
-    session.post(url, headers=headers, data=data1)
-    data2 = {
-        "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
-        "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
-    }
-    session.post(url, headers=headers, data=data2)
-    time.sleep(WAITING_TIME_OF_PIN)
-    pin = get_pin_from_gmail(EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD)
-    data3 = {
-        "auth": pin, "sess_id": sess_id, "subaction": "kc2_security_password_get_token",
-        "prefix": "kc2_customer_contract_details_extend_contract_", "type": 1,
-        "ident": f"kc2_customer_contract_details_extend_contract_{order_id}",
-    }
-    f = session.post(url, headers=headers, data=data3)
-    f.raise_for_status()
-    response_json = f.json()
-    if response_json.get("rs") != "success":
-        raise Exception(f"获取Token失败: {f.text}")
-    token = response_json["token"]["value"]
-    log("成功获取续期Token")
-    data4 = {
-        "sess_id": sess_id, "ord_id": order_id,
-        "subaction": "kc2_customer_contract_details_extend_contract_term", "token": token,
-    }
-    final_res = session.post(url, headers=headers, data=data4)
-    final_res.raise_for_status()
-    return True
-
-def check_status_after_renewal(sess_id, session):
-    log("正在进行续期后状态检查...")
-    servers_still_to_renew = get_servers(sess_id, session)
-    if not servers_still_to_renew:
-        log("🎉 所有服务器均已成功续订或无需续订！")
-    else:
-        for server_id in servers_still_to_renew:
-            log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
-
-def main():
-    if not all([EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
-        log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
-        exit(1)
-    
-    status = "成功"
-    try:
-        log("--- 开始 Euserv 自动续期任务 ---")
-        sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
-        if sess_id == "-1" or s is None:
-            raise Exception("登录失败")
-            
-        servers_to_renew = get_servers(sess_id, s)
-        
-        if not servers_to_renew:
-            log("✅ 检测到所有服务器均无需续期。")
-        else:
-            log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {', '.join(servers_to_renew)}")
-            for server_id in servers_to_renew:
-                log(f"\n🔄 --- 正在为服务器 {server_id} 执行续期 ---")
-                try:
-                    renew(sess_id, s, server_id)
-                    log(f"✔️ 服务器 {server_id} 的续期流程已成功提交。")
-                except Exception as e:
-                    log(f"❌ 为服务器 {server_id} 续期时发生严重错误: {e}")
-                    status = "失败"
-        
-        time.sleep(15)
-        check_status_after_renewal(sess_id, s)
-        log("\n🏁 --- 所有工作完成 ---")
-    
-    except Exception as e:
-        status = "失败"
-        log(f"❗ 脚本执行过程中发生致命错误: {e}")
-        # 重新抛出异常以使GitHub Action正确地标记为失败
-        # finally块中的邮件发送仍然会执行
-        raise 
-    finally:
-        # 无论成功或失败，最后都发送邮件
-        send_status_email(status, "\n".join(LOG_MESSAGES))
-
-if __name__ == "__main__":
-     main()
+        "Submit": "Extend contract", "sess_id": sess_id, "
