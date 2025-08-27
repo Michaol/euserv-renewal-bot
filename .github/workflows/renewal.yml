@@ -33,4 +33,4 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           CAPTCHA_USERID: ${{ secrets.CAPTCHA_USERID }}
           CAPTCHA_APIKEY: ${{ secrets.CAPTCHA_APIKEY }}
-        run: python renewal_script.py
+        run: Euserv_Renewal.py
