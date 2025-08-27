@@ -158,16 +158,23 @@ def login(username, password):
         return sess_id, session
 
 def get_servers(sess_id, session):
+    """获取可续约的服务器列表 (根据最终确认的正确URL)"""
     servers_to_renew = []
-    # 导航到正确的合同页面
-    url = f"https://support.euserv.com/customer_contract.php?sess_id={sess_id}"
+    
+    # --- ↓↓↓ 核心修改：访问正确的URL (登录后的主面板) ↓↓↓ ---
+    url = f"https://support.euserv.com/index.iphp?sess_id={sess_id}"
+    # --- ↑↑↑ 核心修改 ↑↑↑ ---
+
     headers = {"user-agent": USER_AGENT}
+    log(f"正在访问服务器列表页面: {url}")
     f = session.get(url=url, headers=headers)
-    f.raise_for_status()
+    f.raise_for_status() # 这次应该不会再报404错误了
     soup = BeautifulSoup(f.text, "html.parser")
     
-    # 使用精确的CSS选择器
-    for tr in soup.select("#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"):
+    # --- 使用您提供的py文件中更精确的CSS选择器 ---
+    selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
+    
+    for tr in soup.select(selector):
         server_id_tag = tr.select_one(".td-z1-sp1-kc")
         if not server_id_tag: continue
         
