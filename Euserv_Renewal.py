@@ -290,4 +290,19 @@ def main():
                     renew(sess_id, s, server['id'])
                     log(f"✔️ 服务器 {server['id']} 的续期流程已成功提交。")
                 except Exception as e:
-                    log(f"❌ 为服务器 {server['id']} 续期时发生严重错误: {e
+                    log(f"❌ 为服务器 {server['id']} 续期时发生严重错误: {e}")
+                    status = "失败"
+        
+        time.sleep(15)
+        check_status_after_renewal(sess_id, s)
+        log("\n🏁 --- 所有工作完成 ---")
+    
+    except Exception as e:
+        status = "失败"
+        log(f"❗ 脚本执行过程中发生致命错误: {e}")
+        raise 
+    finally:
+        send_status_email(status, "\n".join(LOG_MESSAGES))
+
+if __name__ == "__main__":
+     main()
