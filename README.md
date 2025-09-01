@@ -83,6 +83,8 @@ Inspired by [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.c
 3.  点击 `Run workflow` 按钮来手动触发一次运行。
 4.  您可以点击运行中的任务，实时查看日志输出。
 
+脚本默认在请求PIN码后等待 **30秒** 再去邮箱中读取。如果您的邮件接收有延迟，可以修改 `Euserv_Renewal.py` 文件顶部的 `WAITING_TIME_OF_PIN` 常量，例如改为 `60`。
+
 ### 定时任务配置
 
 默认情况下，续约任务被设置为在**每周日的凌晨0点 (UTC时间)** 运行。对应的`cron`表达式为 `0 0 * * 0`。
@@ -156,6 +158,8 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 2.  Select the **`Euserv VPS Renewal`** workflow from the sidebar.
 3.  Click the **`Run workflow`** button to trigger a manual run.
 4.  You can click on the running job to view the live logs.
+
+By default, the script waits for **30 seconds** after requesting a PIN before checking your email. If you experience email delays, you can edit the `WAITING_TIME_OF_PIN` constant at the top of the `Euserv_Renewal.py` file (e.g., set it to `60`).
 
 ### Schedule Configuration
 
