@@ -4,8 +4,9 @@
 
 一个基于 GitHub Actions 和 `requests` 库的自动化脚本，用于自动续约 [EUserv](https://www.euserv.com/) 提供的免费VPS计划。脚本通过精确模拟浏览器请求和邮件交互，实现无人值守的自动化续约。
 
-受 https://github.com/zensea/AutoEUServerlessWith2FA 和 https://github.com/WizisCool/AutoEUServerless 启发
-Inspired by https://github.com/zensea/AutoEUServerlessWith2FA and https://github.com/WizisCool/AutoEUServerless
+受 [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.com/zensea/AutoEUServerlessWith2FA) 和 [https://github.com/WizisCool/AutoEUServerless](https://github.com/WizisCool/AutoEUServerless) 启发
+
+Inspired by [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.com/zensea/AutoEUServerlessWith2FA) and [https://github.com/WizisCool/AutoEUServerless](https://github.com/WizisCool/AutoEUServerless)
 
 ---
 
