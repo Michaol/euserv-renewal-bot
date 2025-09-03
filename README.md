@@ -1,6 +1,6 @@
 # EUserv 免费 VPS 自动续约脚本 (Requests版)
 
-[![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2FMichaol%2Feuserv-renewal-bot&label=&icon=github&color=%23198754&message=&style=flat&tz=Asia%2FShanghai)
 
 一个基于 GitHub Actions 和 `requests` 库的自动化脚本，用于自动续约 [EUserv](https://www.euserv.com/) 提供的免费VPS计划。脚本通过精确模拟浏览器请求和邮件交互，实现无人值守的自动化续约。
 
