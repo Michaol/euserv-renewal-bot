@@ -89,25 +89,53 @@ def hotp(key, counter, digits=6, digest='sha1'):
 def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
 
-def solve_captcha(session, captcha_image_url):
-    response = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
-    response.raise_for_status()
-    encoded_string = base64.b64encode(response.content).decode('ascii')
+def solve_captcha(image_bytes):
+    log("正在以“优先数学模式”调用TrueCaptcha API...")
+    encoded_string = base64.b64encode(image_bytes).decode('ascii')
     url = 'https://api.apitruecaptcha.org/one/gettext'
-    data = {'userid': CAPTCHA_USERID, 'apikey': CAPTCHA_APIKEY, 'data': encoded_string}
-    api_response = requests.post(url=url, json=data)
+    
+    data_math = {
+        'userid': CAPTCHA_USERID, 
+        'apikey': CAPTCHA_APIKEY, 
+        'data': encoded_string,
+        'math': 1,
+        'numeric': 4
+    }
+    
+    api_response = requests.post(url=url, json=data_math)
     api_response.raise_for_status()
     result_data = api_response.json()
+
+    if result_data.get('status') != 'error' and result_data.get('result'):
+        captcha_text = result_data.get('result')
+        log(f"API在数学模式下的初步识别结果: {captcha_text}")
+        try:
+            calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
+            log(f"数学模式成功，计算结果: {calculated_result}")
+            return calculated_result
+        except Exception:
+            log("数学模式计算失败，回退到文本模式...")
+
+    log("正在以“纯文本模式”再次调用TrueCaptcha API...")
+    data_text = {
+        'userid': CAPTCHA_USERID, 
+        'apikey': CAPTCHA_APIKEY, 
+        'data': encoded_string
+    }
+    
+    api_response = requests.post(url=url, json=data_text)
+    api_response.raise_for_status()
+    result_data = api_response.json()
+
     if result_data.get('status') == 'error':
-        raise Exception(f"CAPTCHA API返回错误: {result_data.get('message')}")
+        raise Exception(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
+    
     captcha_text = result_data.get('result')
     if not captcha_text:
-        raise Exception(f"未能从API响应中获取验证码结果: {result_data}")
-    log(f"API识别结果: {captcha_text}")
-    try:
-        return str(eval(captcha_text.replace('x', '*').replace('X', '*')))
-    except Exception as e:
-        raise ValueError(f"无法计算识别出的数学表达式 '{captcha_text}': {e}")
+        raise Exception(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
+    
+    log(f"API在纯文本模式下的最终识别结果: {captcha_text}")
+    return captcha_text
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
