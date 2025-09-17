@@ -143,13 +143,16 @@ def login(username, password):
     url = "https://support.euserv.com/index.iphp"
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
     session = requests.Session()
+
     sess_res = session.get(url, headers=headers)
     sess_res.raise_for_status()
     cookies = sess_res.cookies
     sess_id = cookies.get('PHPSESSID')
     if not sess_id:
         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
+    
     session.get("https://support.euserv.com/pic/logo_small.png", headers=headers)
+
     login_data = {
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
@@ -160,7 +163,10 @@ def login(username, password):
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "To finish the login process please solve the following captcha." in f.text:
             log("检测到图片验证码，正在处理...")
-            captcha_code = solve_captcha(session, captcha_image_url)
+            image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
+            image_res.raise_for_status()
+            captcha_code = solve_captcha(image_res.content)
+
             log(f"验证码计算结果是: {captcha_code}")
             f = session.post(
                 url, headers=headers,
