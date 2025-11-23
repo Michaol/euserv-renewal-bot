@@ -111,10 +111,10 @@ def solve_captcha(image_bytes):
     log(f"API识别出的原始文本是: {captcha_text}")
     
     try:
+        if re.search(r'[a-wy-zA-WY-Z]', captcha_text):
+             log("识别结果为纯文本，直接返回原始文本。")
+             return captcha_text
         text_to_eval = captcha_text.replace('x', '*').replace('X', '*')
-        if re.search(r'[a-wy-zA-WY-Z]', text_to_eval):
-             log("识别结果为纯文本，直接返回。")
-             return text_to_eval
         calculated_result = str(eval(text_to_eval))
         log(f"脚本计算出的最终答案是: {calculated_result}")
         return calculated_result
