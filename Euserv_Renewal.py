@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Inspired by https://github.com/zensea/AutoEUServerlessWith2FA and https://github.com/WizisCool/AutoEUServerless
 
 import os
 import re
@@ -76,7 +77,6 @@ def login_retry(max_retry):
             return "-1", None
         return wrapper
     return decorator
-
 def hotp(key, counter, digits=6, digest='sha1'):
     key = base64.b32decode(key.upper() + '=' * ((8 - len(key)) % 8))
     counter = struct.pack('>Q', counter)
@@ -89,38 +89,53 @@ def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
 
 def solve_captcha(image_bytes):
-    log("正在以通用模式调用TrueCaptcha API...")
+    log("正在以“优先数学模式”调用TrueCaptcha API...")
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
     url = 'https://api.apitruecaptcha.org/one/gettext'
-    data = {
-        'userid': CAPTCHA_USERID,
-        'apikey': CAPTCHA_APIKEY,
-        'data': encoded_string
+    
+    data_math = {
+        'userid': CAPTCHA_USERID, 
+        'apikey': CAPTCHA_APIKEY, 
+        'data': encoded_string,
+        'math': 1,
+        'numeric': 4
     }
-    api_response = requests.post(url=url, json=data)
+    
+    api_response = requests.post(url=url, json=data_math)
+    api_response.raise_for_status()
+    result_data = api_response.json()
+
+    if result_data.get('status') != 'error' and result_data.get('result'):
+        captcha_text = result_data.get('result')
+        log(f"API在数学模式下的初步识别结果: {captcha_text}")
+        try:
+            calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
+            log(f"数学模式成功，计算结果: {calculated_result}")
+            return calculated_result
+        except Exception:
+            log("数学模式计算失败，回退到文本模式...")
+
+    log("正在以“纯文本模式”再次调用TrueCaptcha API...")
+    data_text = {
+        'userid': CAPTCHA_USERID, 
+        'apikey': CAPTCHA_APIKEY, 
+        'data': encoded_string,
+        'math': 0
+    }
+    
+    api_response = requests.post(url=url, json=data_text)
     api_response.raise_for_status()
     result_data = api_response.json()
 
     if result_data.get('status') == 'error':
-        raise Exception(f"CAPTCHA API返回错误: {result_data.get('message')}")
+        raise Exception(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
     
     captcha_text = result_data.get('result')
     if not captcha_text:
-        raise Exception(f"未能从API响应中获取验证码结果: {result_data}")
+        raise Exception(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
     
-    log(f"API识别出的原始文本是: {captcha_text}")
-    
-    try:
-        text_to_eval = captcha_text.replace('x', '*').replace('X', '*')
-        if re.search(r'[a-wy-zA-WY-Z]', text_to_eval):
-             log("识别结果为纯文本，直接返回。")
-             return text_to_eval
-        calculated_result = str(eval(text_to_eval))
-        log(f"脚本计算出的最终答案是: {calculated_result}")
-        return calculated_result
-    except Exception:
-        log(f"无法计算API返回的文本 '{captcha_text}'，将直接使用原始文本。")
-        return captcha_text
+    log(f"API在纯文本模式下的最终识别结果: {captcha_text}")
+    return captcha_text
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
@@ -128,34 +143,30 @@ def login(username, password):
     url = "https://support.euserv.com/index.iphp"
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
     session = requests.Session()
+
     sess_res = session.get(url, headers=headers)
     sess_res.raise_for_status()
     cookies = sess_res.cookies
     sess_id = cookies.get('PHPSESSID')
     if not sess_id:
         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
+    
     session.get("https://support.euserv.com/pic/logo_small.png", headers=headers)
+
     login_data = {
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
     }
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
+
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "To finish the login process please solve the following captcha." in f.text:
             log("检测到图片验证码，正在处理...")
             image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
             image_res.raise_for_status()
-            timestamp = int(time.time())
-            captcha_image_filename = f"captcha_image_{timestamp}.png"
-            captcha_page_filename = f"captcha_page_{timestamp}.html"
-            log(f"正在保存验证码图片到 {captcha_image_filename}")
-            with open(captcha_image_filename, "wb") as img_file:
-                img_file.write(image_res.content)
-            log(f"正在保存验证码页面到 {captcha_page_filename}")
-            with open(captcha_page_filename, "w", encoding="utf-8") as html_file:
-                html_file.write(f.text)
             captcha_code = solve_captcha(image_res.content)
+
             log(f"验证码计算结果是: {captcha_code}")
             f = session.post(
                 url, headers=headers,
@@ -165,22 +176,27 @@ def login(username, password):
                 log("图片验证码验证失败")
                 return "-1", session
             log("图片验证码验证通过")
+
         if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
             log("检测到需要2FA验证")
             if not EUSERV_2FA:
                 log("未配置EUSERV_2FA Secret，无法进行2FA登录。")
                 return "-1", session
+            
             two_fa_code = totp(EUSERV_2FA)
             log(f"生成的2FA动态密码: {two_fa_code}")
+            
             soup = BeautifulSoup(f.text, "html.parser")
             hidden_inputs = soup.find_all("input", type="hidden")
             two_fa_data = {inp["name"]: inp.get("value", "") for inp in hidden_inputs}
             two_fa_data["pin"] = two_fa_code
+            
             f = session.post(url, headers=headers, data=two_fa_data)
             if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
                 log("2FA验证失败")
                 return "-1", session
             log("2FA验证通过")
+
         if "Hello" in f.text or "Confirm or change your customer data here" in f.text:
             log("登录成功")
             return sess_id, session
@@ -299,8 +315,7 @@ def check_status_after_renewal(sess_id, session):
 def main():
     if not all([EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
         log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
-        if LOG_MESSAGES:
-            send_status_email("配置错误", "\n".join(LOG_MESSAGES))
+        if LOG_MESSAGES: send_status_email("配置错误", "\n".join(LOG_MESSAGES))
         exit(1)
     
     status = "成功"
@@ -309,7 +324,7 @@ def main():
         sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
         if sess_id == "-1" or s is None:
             raise Exception("登录失败")
-        
+            
         all_servers = get_servers(sess_id, s)
         servers_to_renew = [server for server in all_servers if server["renewable"]]
         
@@ -343,4 +358,4 @@ def main():
         send_status_email(status, "\n".join(LOG_MESSAGES))
 
 if __name__ == "__main__":
-    main()
+     main()
