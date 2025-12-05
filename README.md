@@ -13,17 +13,17 @@ Inspired by [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.c
 ## 目录
 
 * [中文版](#中文版)
-    * [功能特性](#功能特性)
-    * [配置指南](#配置指南)
-    * [定时任务配置](#定时任务配置)
-    * [许可证](#许可证-1)
-    * [免责声明](#免责声明)
+  * [功能特性](#功能特性)
+  * [配置指南](#配置指南)
+  * [定时任务配置](#定时任务配置)
+  * [许可证](#许可证-1)
+  * [免责声明](#免责声明)
 * [English Version](#english-version)
-    * [Features](#features-1)
-    * [Setup Guide](#setup-guide-1)
-    * [Schedule Configuration](#schedule-configuration-1)
-    * [License](#license)
-    * [Disclaimer](#disclaimer-1)
+  * [Features](#features-1)
+  * [Setup Guide](#setup-guide-1)
+  * [Schedule Configuration](#schedule-configuration-1)
+  * [License](#license)
+  * [Disclaimer](#disclaimer-1)
 
 ---
 
@@ -45,10 +45,10 @@ Inspired by [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.c
 
 #### 准备工作
 
-1.  一个正常使用的 **Euserv 免费VPS** 账户。
-2.  一个 **Gmail 邮箱账户**，并已为其生成一个**应用专用密码**。
-3.  一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，并获取您的 `userid` 和 `apikey`。
-4.  一个 **GitHub 账户**。
+1. 一个正常使用的 **Euserv 免费VPS** 账户。
+2. 一个 **Gmail 邮箱账户**，并已为其生成一个**应用专用密码**。
+3. 一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，并获取您的 `userid` 和 `apikey`。
+4. 一个 **GitHub 账户**。
 
 #### 第1步：Fork 本仓库
 
@@ -78,16 +78,16 @@ Inspired by [https://github.com/zensea/AutoEUServerlessWith2FA](https://github.c
 
 #### 第3步：手动运行工作流进行测试
 
-1.  点击仓库顶部的 `Actions` 标签页。
-2.  在左侧选择 `Euserv VPS Renewal` 工作流。
-3.  点击 `Run workflow` 按钮来手动触发一次运行。
-4.  您可以点击运行中的任务，实时查看日志输出。
+1. 点击仓库顶部的 `Actions` 标签页。
+2. 在左侧选择 `Euserv VPS Renewal` 工作流。
+3. 点击 `Run workflow` 按钮来手动触发一次运行。
+4. 您可以点击运行中的任务，实时查看日志输出。
 
 脚本默认在请求PIN码后等待 **30秒** 再去邮箱中读取。如果您的邮件接收有延迟，可以修改 `Euserv_Renewal.py` 文件顶部的 `WAITING_TIME_OF_PIN` 常量，例如改为 `60`。
 
 ### 定时任务配置
 
-默认情况下，续约任务被设置为在**每周日的凌晨0点 (UTC时间)** 运行。对应的`cron`表达式为 `0 0 * * 0`。
+默认情况下，续约任务被设置为在**每3天的凌晨0点 (UTC时间)** 运行。对应的`cron`表达式为 `0 0 */3 * *`。
 
 如果您想修改这个时间，可以编辑 `.github/workflows/renewal.yml` 文件中的 `cron` 表达式。
 
@@ -121,10 +121,10 @@ Please follow these steps carefully to get the workflow running.
 
 #### Prerequisites
 
-1.  An active **Euserv Free VPS** account.
-2.  A **Gmail account** for which you have generated an **App Password**.
-3.  A **TrueCaptcha** account (`apitruecaptcha.org`) with your `userid` and `apikey`.
-4.  A **GitHub account**.
+1. An active **Euserv Free VPS** account.
+2. A **Gmail account** for which you have generated an **App Password**.
+3. A **TrueCaptcha** account (`apitruecaptcha.org`) with your `userid` and `apikey`.
+4. A **GitHub account**.
 
 #### Step 1: Fork the Repository
 
@@ -154,16 +154,16 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 
 #### Step 3: Manually Run the Workflow to Test
 
-1.  Go to the **`Actions`** tab in your repository.
-2.  Select the **`Euserv VPS Renewal`** workflow from the sidebar.
-3.  Click the **`Run workflow`** button to trigger a manual run.
-4.  You can click on the running job to view the live logs.
+1. Go to the **`Actions`** tab in your repository.
+2. Select the **`Euserv VPS Renewal`** workflow from the sidebar.
+3. Click the **`Run workflow`** button to trigger a manual run.
+4. You can click on the running job to view the live logs.
 
 By default, the script waits for **30 seconds** after requesting a PIN before checking your email. If you experience email delays, you can edit the `WAITING_TIME_OF_PIN` constant at the top of the `Euserv_Renewal.py` file (e.g., set it to `60`).
 
 ### Schedule Configuration
 
-By default, the renewal job is scheduled to run at **00:00 UTC on every Sunday**. The corresponding `cron` expression is `0 0 * * 0`.
+By default, the renewal job is scheduled to run at **00:00 UTC every 3 days**. The corresponding `cron` expression is `0 0 */3 * *`.
 
 If you wish to change this schedule, you can edit the `cron` expression in the `.github/workflows/renewal.yml` file.
 

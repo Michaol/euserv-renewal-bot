@@ -5,11 +5,13 @@ import re
 import json
 import time
 import base64
+import ast
+import operator
 import requests
 from bs4 import BeautifulSoup
 import imaplib
 import email
-from datetime import date
+from datetime import date, datetime
 import smtplib
 from email.mime.text import MIMEText
 import hmac
@@ -25,18 +27,27 @@ EMAIL_USERNAME = os.getenv('EMAIL_USERNAME')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL')
 
+# ========== 配置常量 ==========
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/95.0.4638.69 Safari/537.36"
+    "Chrome/120.0.0.0 Safari/537.36"
 )
 LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 30
+DEFAULT_TIMEOUT = 30  # HTTP请求超时时间（秒）
+
+EUSERV_BASE_URL = "https://support.euserv.com"
+EUSERV_INDEX_URL = f"{EUSERV_BASE_URL}/index.iphp"
+EUSERV_CAPTCHA_URL = f"{EUSERV_BASE_URL}/securimage_show.php"
+# ===============================
 
 LOG_MESSAGES = []
 
 def log(info: str):
-    print(info)
-    LOG_MESSAGES.append(info)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message = f"[{timestamp}] {info}"
+    print(message)
+    LOG_MESSAGES.append(message)
 
 def send_status_email(subject_status, log_content):
     if not (NOTIFICATION_EMAIL and EMAIL_USERNAME and EMAIL_PASSWORD):
@@ -88,6 +99,36 @@ def hotp(key, counter, digits=6, digest='sha1'):
 def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
 
+def safe_eval_math(expression):
+    """安全地计算简单数学表达式（支持 +, -, *, /）"""
+    operators_map = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+    }
+    
+    def _eval(node):
+        if isinstance(node, ast.Num):  # Python 3.7-
+            return node.n
+        elif isinstance(node, ast.Constant):  # Python 3.8+
+            return node.value
+        elif isinstance(node, ast.BinOp):
+            left = _eval(node.left)
+            right = _eval(node.right)
+            op = operators_map.get(type(node.op))
+            if op is None:
+                raise ValueError(f"不支持的运算符: {type(node.op).__name__}")
+            return op(left, right)
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            return -_eval(node.operand)
+        else:
+            raise ValueError(f"不支持的表达式类型: {type(node).__name__}")
+    
+    expression = expression.replace('x', '*').replace('X', '*')
+    tree = ast.parse(expression, mode='eval')
+    return int(_eval(tree.body))
+
 def solve_captcha(image_bytes):
     log("正在以通用模式调用TrueCaptcha API...")
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
@@ -114,37 +155,36 @@ def solve_captcha(image_bytes):
         if re.search(r'[a-wy-zA-WY-Z]', captcha_text):
              log("识别结果为纯文本，直接返回原始文本。")
              return captcha_text
-        text_to_eval = captcha_text.replace('x', '*').replace('X', '*')
-        calculated_result = str(eval(text_to_eval))
+        calculated_result = str(safe_eval_math(captcha_text))
         log(f"脚本计算出的最终答案是: {calculated_result}")
         return calculated_result
-    except Exception:
-        log(f"无法计算API返回的文本 '{captcha_text}'，将直接使用原始文本。")
+    except (ValueError, SyntaxError) as e:
+        log(f"无法计算API返回的文本 '{captcha_text}'（{e}），将直接使用原始文本。")
         return captcha_text
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
     headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
-    url = "https://support.euserv.com/index.iphp"
-    captcha_image_url = "https://support.euserv.com/securimage_show.php"
+    url = EUSERV_INDEX_URL
+    captcha_image_url = EUSERV_CAPTCHA_URL
     session = requests.Session()
-    sess_res = session.get(url, headers=headers)
+    sess_res = session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
     sess_res.raise_for_status()
     cookies = sess_res.cookies
     sess_id = cookies.get('PHPSESSID')
     if not sess_id:
         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
-    session.get("https://support.euserv.com/pic/logo_small.png", headers=headers)
+    session.get(f"{EUSERV_BASE_URL}/pic/logo_small.png", headers=headers, timeout=DEFAULT_TIMEOUT)
     login_data = {
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
     }
-    f = session.post(url, headers=headers, data=login_data)
+    f = session.post(url, headers=headers, data=login_data, timeout=DEFAULT_TIMEOUT)
     f.raise_for_status()
     if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
         if "To finish the login process please solve the following captcha." in f.text:
             log("检测到图片验证码，正在处理...")
-            image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
+            image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT}, timeout=DEFAULT_TIMEOUT)
             image_res.raise_for_status()
             timestamp = int(time.time())
             captcha_image_filename = f"captcha_image_{timestamp}.png"
@@ -159,7 +199,8 @@ def login(username, password):
             log(f"验证码计算结果是: {captcha_code}")
             f = session.post(
                 url, headers=headers,
-                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
+                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)},
+                timeout=DEFAULT_TIMEOUT
             )
             if "To finish the login process please solve the following captcha." in f.text:
                 log("图片验证码验证失败")
@@ -171,12 +212,12 @@ def login(username, password):
                 log("未配置EUSERV_2FA Secret，无法进行2FA登录。")
                 return "-1", session
             two_fa_code = totp(EUSERV_2FA)
-            log(f"生成的2FA动态密码: {two_fa_code}")
+            log("2FA动态密码已生成")
             soup = BeautifulSoup(f.text, "html.parser")
             hidden_inputs = soup.find_all("input", type="hidden")
             two_fa_data = {inp["name"]: inp.get("value", "") for inp in hidden_inputs}
             two_fa_data["pin"] = two_fa_code
-            f = session.post(url, headers=headers, data=two_fa_data)
+            f = session.post(url, headers=headers, data=two_fa_data, timeout=DEFAULT_TIMEOUT)
             if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
                 log("2FA验证失败")
                 return "-1", session
@@ -229,9 +270,9 @@ def get_pin_from_gmail(host, username, password):
 def get_servers(sess_id, session):
     log("正在访问服务器列表页面...")
     server_list = []
-    url = f"https://support.euserv.com/index.iphp?sess_id={sess_id}"
+    url = f"{EUSERV_INDEX_URL}?sess_id={sess_id}"
     headers = {"user-agent": USER_AGENT}
-    f = session.get(url=url, headers=headers)
+    f = session.get(url=url, headers=headers, timeout=DEFAULT_TIMEOUT)
     f.raise_for_status()
     soup = BeautifulSoup(f.text, "html.parser")
     selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
@@ -252,18 +293,18 @@ def get_servers(sess_id, session):
 
 def renew(sess_id, session, order_id):
     log(f"正在为服务器 {order_id} 触发续订流程...")
-    url = "https://support.euserv.com/index.iphp"
+    url = EUSERV_INDEX_URL
     headers = {"user-agent": USER_AGENT, "Host": "support.euserv.com", "origin": "https://support.euserv.com"}
     data1 = {
         "Submit": "Extend contract", "sess_id": sess_id, "ord_no": order_id,
         "subaction": "choose_order", "choose_order_subaction": "show_contract_details",
     }
-    session.post(url, headers=headers, data=data1)
+    session.post(url, headers=headers, data=data1, timeout=DEFAULT_TIMEOUT)
     data2 = {
         "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
         "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
     }
-    session.post(url, headers=headers, data=data2)
+    session.post(url, headers=headers, data=data2, timeout=DEFAULT_TIMEOUT)
     time.sleep(WAITING_TIME_OF_PIN)
     pin = get_pin_from_gmail(EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD)
     data3 = {
@@ -271,7 +312,7 @@ def renew(sess_id, session, order_id):
         "prefix": "kc2_customer_contract_details_extend_contract_", "type": 1,
         "ident": f"kc2_customer_contract_details_extend_contract_{order_id}",
     }
-    f = session.post(url, headers=headers, data=data3)
+    f = session.post(url, headers=headers, data=data3, timeout=DEFAULT_TIMEOUT)
     f.raise_for_status()
     response_json = f.json()
     if response_json.get("rs") != "success":
@@ -282,7 +323,7 @@ def renew(sess_id, session, order_id):
         "sess_id": sess_id, "ord_id": order_id,
         "subaction": "kc2_customer_contract_details_extend_contract_term", "token": token,
     }
-    final_res = session.post(url, headers=headers, data=data4)
+    final_res = session.post(url, headers=headers, data=data4, timeout=DEFAULT_TIMEOUT)
     final_res.raise_for_status()
     return True
 
