@@ -203,9 +203,15 @@ def login(username, password):
                 timeout=DEFAULT_TIMEOUT
             )
             if "To finish the login process please solve the following captcha." in f.text:
-                log("图片验证码验证失败")
+                log("图片验证码验证失败，保留文件用于检查")
                 return "-1", session
-            log("图片验证码验证通过")
+            log("图片验证码验证通过，清理临时文件")
+            # 验证成功，删除临时文件
+            try:
+                os.remove(captcha_image_filename)
+                os.remove(captcha_page_filename)
+            except OSError:
+                pass
         if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
             log("检测到需要2FA验证")
             if not EUSERV_2FA:
