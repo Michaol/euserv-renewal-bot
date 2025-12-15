@@ -1,0 +1,221 @@
+renew-vps	Set up job	﻿2025-12-15T09:20:10.9982977Z Current runner version: '2.329.0'
+renew-vps	Set up job	2025-12-15T09:20:11.0010102Z ##[group]Runner Image Provisioner
+renew-vps	Set up job	2025-12-15T09:20:11.0011008Z Hosted Compute Agent
+renew-vps	Set up job	2025-12-15T09:20:11.0011602Z Version: 20251202.455
+renew-vps	Set up job	2025-12-15T09:20:11.0012332Z Commit: 6c10caca4910e198df60de23adf20ad317c474e3
+renew-vps	Set up job	2025-12-15T09:20:11.0013083Z Build Date: 2025-12-02T15:56:59Z
+renew-vps	Set up job	2025-12-15T09:20:11.0013861Z Worker ID: {073d5a83-de64-473a-afda-efe552deb229}
+renew-vps	Set up job	2025-12-15T09:20:11.0014587Z ##[endgroup]
+renew-vps	Set up job	2025-12-15T09:20:11.0015144Z ##[group]Operating System
+renew-vps	Set up job	2025-12-15T09:20:11.0016090Z Ubuntu
+renew-vps	Set up job	2025-12-15T09:20:11.0016584Z 24.04.3
+renew-vps	Set up job	2025-12-15T09:20:11.0017128Z LTS
+renew-vps	Set up job	2025-12-15T09:20:11.0017686Z ##[endgroup]
+renew-vps	Set up job	2025-12-15T09:20:11.0018239Z ##[group]Runner Image
+renew-vps	Set up job	2025-12-15T09:20:11.0018812Z Image: ubuntu-24.04
+renew-vps	Set up job	2025-12-15T09:20:11.0019442Z Version: 20251208.163.1
+renew-vps	Set up job	2025-12-15T09:20:11.0020561Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20251208.163/images/ubuntu/Ubuntu2404-Readme.md
+renew-vps	Set up job	2025-12-15T09:20:11.0022069Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20251208.163
+renew-vps	Set up job	2025-12-15T09:20:11.0023345Z ##[endgroup]
+renew-vps	Set up job	2025-12-15T09:20:11.0024592Z ##[group]GITHUB_TOKEN Permissions
+renew-vps	Set up job	2025-12-15T09:20:11.0026946Z Contents: read
+renew-vps	Set up job	2025-12-15T09:20:11.0027698Z Metadata: read
+renew-vps	Set up job	2025-12-15T09:20:11.0028239Z Packages: read
+renew-vps	Set up job	2025-12-15T09:20:11.0028777Z ##[endgroup]
+renew-vps	Set up job	2025-12-15T09:20:11.0031241Z Secret source: Actions
+renew-vps	Set up job	2025-12-15T09:20:11.0032274Z Prepare workflow directory
+renew-vps	Set up job	2025-12-15T09:20:11.0458110Z Prepare all required actions
+renew-vps	Set up job	2025-12-15T09:20:11.0514913Z Getting action download info
+renew-vps	Set up job	2025-12-15T09:20:11.3861552Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+renew-vps	Set up job	2025-12-15T09:20:11.4852317Z Download action repository 'actions/setup-python@v4' (SHA:7f4fc3e22c37d6ff65e88745f38bd3157c663f7c)
+renew-vps	Set up job	2025-12-15T09:20:11.6561183Z Complete job name: renew-vps
+renew-vps	Checkout repository	﻿2025-12-15T09:20:11.7298165Z ##[group]Run actions/checkout@v4
+renew-vps	Checkout repository	2025-12-15T09:20:11.7299174Z with:
+renew-vps	Checkout repository	2025-12-15T09:20:11.7299739Z   repository: Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:11.7300620Z   token: ***
+renew-vps	Checkout repository	2025-12-15T09:20:11.7301090Z   ssh-strict: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7301731Z   ssh-user: git
+renew-vps	Checkout repository	2025-12-15T09:20:11.7302272Z   persist-credentials: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7302826Z   clean: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7303344Z   sparse-checkout-cone-mode: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7303931Z   fetch-depth: 1
+renew-vps	Checkout repository	2025-12-15T09:20:11.7304415Z   fetch-tags: false
+renew-vps	Checkout repository	2025-12-15T09:20:11.7304909Z   show-progress: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7305595Z   lfs: false
+renew-vps	Checkout repository	2025-12-15T09:20:11.7306058Z   submodules: false
+renew-vps	Checkout repository	2025-12-15T09:20:11.7306557Z   set-safe-directory: true
+renew-vps	Checkout repository	2025-12-15T09:20:11.7307374Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:11.8414488Z Syncing repository: Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:11.8416929Z ##[group]Getting Git version info
+renew-vps	Checkout repository	2025-12-15T09:20:11.8417911Z Working directory is '/home/runner/work/euserv-renewal-bot/euserv-renewal-bot'
+renew-vps	Checkout repository	2025-12-15T09:20:11.8419249Z [command]/usr/bin/git version
+renew-vps	Checkout repository	2025-12-15T09:20:11.8515825Z git version 2.52.0
+renew-vps	Checkout repository	2025-12-15T09:20:11.8543226Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:11.8558411Z Temporarily overriding HOME='/home/runner/work/_temp/6695b15e-2f19-4471-9530-9cc78a60da02' before making global git config changes
+renew-vps	Checkout repository	2025-12-15T09:20:11.8560010Z Adding repository directory to the temporary git global config as a safe directory
+renew-vps	Checkout repository	2025-12-15T09:20:11.8571491Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:11.8613949Z Deleting the contents of '/home/runner/work/euserv-renewal-bot/euserv-renewal-bot'
+renew-vps	Checkout repository	2025-12-15T09:20:11.8618021Z ##[group]Initializing the repository
+renew-vps	Checkout repository	2025-12-15T09:20:11.8622153Z [command]/usr/bin/git init /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:11.8750672Z hint: Using 'master' as the name for the initial branch. This default branch name
+renew-vps	Checkout repository	2025-12-15T09:20:11.8752016Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+renew-vps	Checkout repository	2025-12-15T09:20:11.8753222Z hint: to use in all of your new repositories, which will suppress this warning,
+renew-vps	Checkout repository	2025-12-15T09:20:11.8754370Z hint: call:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8754842Z hint:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8755931Z hint: 	git config --global init.defaultBranch <name>
+renew-vps	Checkout repository	2025-12-15T09:20:11.8756966Z hint:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8757655Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+renew-vps	Checkout repository	2025-12-15T09:20:11.8758742Z hint: 'development'. The just-created branch can be renamed via this command:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8759595Z hint:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8760078Z hint: 	git branch -m <name>
+renew-vps	Checkout repository	2025-12-15T09:20:11.8760626Z hint:
+renew-vps	Checkout repository	2025-12-15T09:20:11.8761474Z hint: Disable this message with "git config set advice.defaultBranchName false"
+renew-vps	Checkout repository	2025-12-15T09:20:11.8762957Z Initialized empty Git repository in /home/runner/work/euserv-renewal-bot/euserv-renewal-bot/.git/
+renew-vps	Checkout repository	2025-12-15T09:20:11.8768689Z [command]/usr/bin/git remote add origin https://github.com/Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:11.8804510Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:11.8805692Z ##[group]Disabling automatic garbage collection
+renew-vps	Checkout repository	2025-12-15T09:20:11.8809052Z [command]/usr/bin/git config --local gc.auto 0
+renew-vps	Checkout repository	2025-12-15T09:20:11.8838613Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:11.8839463Z ##[group]Setting up auth
+renew-vps	Checkout repository	2025-12-15T09:20:11.8846363Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+renew-vps	Checkout repository	2025-12-15T09:20:11.8877698Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+renew-vps	Checkout repository	2025-12-15T09:20:11.9260552Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+renew-vps	Checkout repository	2025-12-15T09:20:11.9295696Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+renew-vps	Checkout repository	2025-12-15T09:20:11.9525588Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+renew-vps	Checkout repository	2025-12-15T09:20:11.9571565Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+renew-vps	Checkout repository	2025-12-15T09:20:11.9814552Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+renew-vps	Checkout repository	2025-12-15T09:20:11.9851832Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:11.9852806Z ##[group]Fetching the repository
+renew-vps	Checkout repository	2025-12-15T09:20:11.9860755Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +67f845b1ac7d7e62889ef079e696ebca84a2a028:refs/remotes/origin/main
+renew-vps	Checkout repository	2025-12-15T09:20:12.2722267Z From https://github.com/Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2025-12-15T09:20:12.2762869Z  * [new ref]         67f845b1ac7d7e62889ef079e696ebca84a2a028 -> origin/main
+renew-vps	Checkout repository	2025-12-15T09:20:12.2766988Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:12.2768571Z ##[group]Determining the checkout info
+renew-vps	Checkout repository	2025-12-15T09:20:12.2770204Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:12.2773375Z [command]/usr/bin/git sparse-checkout disable
+renew-vps	Checkout repository	2025-12-15T09:20:12.2818259Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+renew-vps	Checkout repository	2025-12-15T09:20:12.2848579Z ##[group]Checking out the ref
+renew-vps	Checkout repository	2025-12-15T09:20:12.2852225Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+renew-vps	Checkout repository	2025-12-15T09:20:12.2906269Z Switched to a new branch 'main'
+renew-vps	Checkout repository	2025-12-15T09:20:12.2909202Z branch 'main' set up to track 'origin/main'.
+renew-vps	Checkout repository	2025-12-15T09:20:12.2916211Z ##[endgroup]
+renew-vps	Checkout repository	2025-12-15T09:20:12.2953406Z [command]/usr/bin/git log -1 --format=%H
+renew-vps	Checkout repository	2025-12-15T09:20:12.2976389Z 67f845b1ac7d7e62889ef079e696ebca84a2a028
+renew-vps	Set up Python	﻿2025-12-15T09:20:12.3223813Z ##[group]Run actions/setup-python@v4
+renew-vps	Set up Python	2025-12-15T09:20:12.3224500Z with:
+renew-vps	Set up Python	2025-12-15T09:20:12.3224948Z   python-version: 3.x
+renew-vps	Set up Python	2025-12-15T09:20:12.3225648Z   check-latest: false
+renew-vps	Set up Python	2025-12-15T09:20:12.3226311Z   token: ***
+renew-vps	Set up Python	2025-12-15T09:20:12.3226786Z   update-environment: true
+renew-vps	Set up Python	2025-12-15T09:20:12.3227325Z   allow-prereleases: false
+renew-vps	Set up Python	2025-12-15T09:20:12.3227830Z ##[endgroup]
+renew-vps	Set up Python	2025-12-15T09:20:12.5109284Z ##[group]Installed versions
+renew-vps	Set up Python	2025-12-15T09:20:12.5211183Z Successfully set up CPython (3.14.2)
+renew-vps	Set up Python	2025-12-15T09:20:12.5213184Z ##[endgroup]
+renew-vps	Install dependencies	﻿2025-12-15T09:20:12.5367842Z ##[group]Run python -m pip install --upgrade pip
+renew-vps	Install dependencies	2025-12-15T09:20:12.5369702Z [36;1mpython -m pip install --upgrade pip[0m
+renew-vps	Install dependencies	2025-12-15T09:20:12.5371728Z [36;1mif [ -f requirements.txt ]; then pip install -r requirements.txt; fi[0m
+renew-vps	Install dependencies	2025-12-15T09:20:12.5418359Z shell: /usr/bin/bash -e {0}
+renew-vps	Install dependencies	2025-12-15T09:20:12.5419536Z env:
+renew-vps	Install dependencies	2025-12-15T09:20:12.5420718Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Install dependencies	2025-12-15T09:20:12.5422672Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.2/x64/lib/pkgconfig
+renew-vps	Install dependencies	2025-12-15T09:20:12.5424608Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Install dependencies	2025-12-15T09:20:12.5426497Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Install dependencies	2025-12-15T09:20:12.5428231Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Install dependencies	2025-12-15T09:20:12.5429985Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.2/x64/lib
+renew-vps	Install dependencies	2025-12-15T09:20:12.5431482Z ##[endgroup]
+renew-vps	Install dependencies	2025-12-15T09:20:15.2291111Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.14.2/x64/lib/python3.14/site-packages (25.3)
+renew-vps	Install dependencies	2025-12-15T09:20:16.0581306Z Collecting requests (from -r requirements.txt (line 1))
+renew-vps	Install dependencies	2025-12-15T09:20:16.1457528Z   Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.1794063Z Collecting beautifulsoup4 (from -r requirements.txt (line 2))
+renew-vps	Install dependencies	2025-12-15T09:20:16.1933376Z   Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.3067965Z Collecting charset_normalizer<4,>=2 (from requests->-r requirements.txt (line 1))
+renew-vps	Install dependencies	2025-12-15T09:20:16.3206843Z   Downloading charset_normalizer-3.4.4-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (37 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.3624169Z Collecting idna<4,>=2.5 (from requests->-r requirements.txt (line 1))
+renew-vps	Install dependencies	2025-12-15T09:20:16.3759920Z   Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.4170392Z Collecting urllib3<3,>=1.21.1 (from requests->-r requirements.txt (line 1))
+renew-vps	Install dependencies	2025-12-15T09:20:16.4309102Z   Downloading urllib3-2.6.2-py3-none-any.whl.metadata (6.6 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.4651533Z Collecting certifi>=2017.4.17 (from requests->-r requirements.txt (line 1))
+renew-vps	Install dependencies	2025-12-15T09:20:16.4788979Z   Downloading certifi-2025.11.12-py3-none-any.whl.metadata (2.5 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.5154529Z Collecting soupsieve>=1.6.1 (from beautifulsoup4->-r requirements.txt (line 2))
+renew-vps	Install dependencies	2025-12-15T09:20:16.5294604Z   Downloading soupsieve-2.8-py3-none-any.whl.metadata (4.6 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.5605505Z Collecting typing-extensions>=4.0.0 (from beautifulsoup4->-r requirements.txt (line 2))
+renew-vps	Install dependencies	2025-12-15T09:20:16.5740485Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.5935004Z Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.6189228Z Downloading charset_normalizer-3.4.4-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (152 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.6567350Z Downloading idna-3.11-py3-none-any.whl (71 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.6793848Z Downloading urllib3-2.6.2-py3-none-any.whl (131 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.7124471Z Downloading beautifulsoup4-4.14.3-py3-none-any.whl (107 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.7408073Z Downloading certifi-2025.11.12-py3-none-any.whl (159 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.7729725Z Downloading soupsieve-2.8-py3-none-any.whl (36 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.7907295Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+renew-vps	Install dependencies	2025-12-15T09:20:16.8197718Z Installing collected packages: urllib3, typing-extensions, soupsieve, idna, charset_normalizer, certifi, requests, beautifulsoup4
+renew-vps	Install dependencies	2025-12-15T09:20:17.3343315Z 
+renew-vps	Install dependencies	2025-12-15T09:20:17.3361906Z Successfully installed beautifulsoup4-4.14.3 certifi-2025.11.12 charset_normalizer-3.4.4 idna-3.11 requests-2.32.5 soupsieve-2.8 typing-extensions-4.15.0 urllib3-2.6.2
+renew-vps	Run renewal script	﻿2025-12-15T09:20:17.4179808Z ##[group]Run python Euserv_Renewal.py
+renew-vps	Run renewal script	2025-12-15T09:20:17.4180215Z [36;1mpython Euserv_Renewal.py[0m
+renew-vps	Run renewal script	2025-12-15T09:20:17.4215234Z shell: /usr/bin/bash -e {0}
+renew-vps	Run renewal script	2025-12-15T09:20:17.4215650Z env:
+renew-vps	Run renewal script	2025-12-15T09:20:17.4215928Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Run renewal script	2025-12-15T09:20:17.4216364Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.2/x64/lib/pkgconfig
+renew-vps	Run renewal script	2025-12-15T09:20:17.4216794Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Run renewal script	2025-12-15T09:20:17.4217180Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Run renewal script	2025-12-15T09:20:17.4217549Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.2/x64
+renew-vps	Run renewal script	2025-12-15T09:20:17.4217921Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.2/x64/lib
+renew-vps	Run renewal script	2025-12-15T09:20:17.4218558Z   EUSERV_USERNAME: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4218816Z   EUSERV_PASSWORD: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4219070Z   EUSERV_2FA: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4219306Z   CAPTCHA_USERID: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4219597Z   CAPTCHA_APIKEY: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4219834Z   EMAIL_HOST: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4220103Z   EMAIL_USERNAME: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4220343Z   EMAIL_PASSWORD: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4220585Z   NOTIFICATION_EMAIL: ***
+renew-vps	Run renewal script	2025-12-15T09:20:17.4220810Z ##[endgroup]
+renew-vps	Run renewal script	2025-12-15T09:20:25.9497796Z --- 开始 Euserv 自动续期任务 ---
+renew-vps	Run renewal script	2025-12-15T09:20:25.9498664Z 检测到图片验证码，正在处理...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9499302Z 正在以“优先数学模式”调用TrueCaptcha API...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9500088Z API调用尝试 1/3...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9500632Z API返回HTTP错误: 0
+renew-vps	Run renewal script	2025-12-15T09:20:25.9501791Z 数学模式API调用失败: 502 Server Error: Bad Gateway for url: https://api.apitruecaptcha.org/one/gettext，尝试文本模式...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9503002Z 正在以“纯文本模式”再次调用TrueCaptcha API...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9503685Z API调用尝试 1/3...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9504354Z API返回HTTP错误: 0
+renew-vps	Run renewal script	2025-12-15T09:20:25.9505669Z ❗ 脚本执行过程中发生致命错误: 502 Server Error: Bad Gateway for url: https://api.apitruecaptcha.org/one/gettext
+renew-vps	Run renewal script	2025-12-15T09:20:25.9506852Z 正在准备发送状态通知邮件...
+renew-vps	Run renewal script	2025-12-15T09:20:25.9507375Z 🎉 状态通知邮件已成功发送！
+renew-vps	Run renewal script	2025-12-15T09:20:25.9507891Z Traceback (most recent call last):
+renew-vps	Run renewal script	2025-12-15T09:20:25.9520530Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 487, in <module>
+renew-vps	Run renewal script	2025-12-15T09:20:25.9521159Z     main()
+renew-vps	Run renewal script	2025-12-15T09:20:25.9521351Z     ~~~~^^
+renew-vps	Run renewal script	2025-12-15T09:20:25.9521813Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 463, in main
+renew-vps	Run renewal script	2025-12-15T09:20:25.9522350Z     sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9522670Z                  ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+renew-vps	Run renewal script	2025-12-15T09:20:25.9523186Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 99, in wrapper
+renew-vps	Run renewal script	2025-12-15T09:20:25.9523680Z     sess_id, session = func(*args, **kwargs)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9523958Z                        ~~~~^^^^^^^^^^^^^^^^^
+renew-vps	Run renewal script	2025-12-15T09:20:25.9524447Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 272, in login
+renew-vps	Run renewal script	2025-12-15T09:20:25.9525056Z     success, f = _handle_captcha(session, sess_id, headers, url, captcha_image_url)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9525807Z                  ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+renew-vps	Run renewal script	2025-12-15T09:20:25.9526401Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 196, in _handle_captcha
+renew-vps	Run renewal script	2025-12-15T09:20:25.9526955Z     captcha_code = solve_captcha(image_res.content)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9527518Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 179, in solve_captcha
+renew-vps	Run renewal script	2025-12-15T09:20:25.9528059Z     result_data = _call_captcha_api(url, data_text)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9528633Z   File "/home/runner/work/euserv-renewal-bot/euserv-renewal-bot/Euserv_Renewal.py", line 123, in _call_captcha_api
+renew-vps	Run renewal script	2025-12-15T09:20:25.9529156Z     api_response.raise_for_status()
+renew-vps	Run renewal script	2025-12-15T09:20:25.9529427Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+renew-vps	Run renewal script	2025-12-15T09:20:25.9530011Z   File "/opt/hostedtoolcache/Python/3.14.2/x64/lib/python3.14/site-packages/requests/models.py", line 1026, in raise_for_status
+renew-vps	Run renewal script	2025-12-15T09:20:25.9531008Z     raise HTTPError(http_error_msg, response=self)
+renew-vps	Run renewal script	2025-12-15T09:20:25.9531553Z requests.exceptions.HTTPError: 502 Server Error: Bad Gateway for url: https://api.apitruecaptcha.org/one/gettext
+renew-vps	Run renewal script	2025-12-15T09:20:25.9828142Z ##[error]Process completed with exit code 1.
+renew-vps	Post Checkout repository	﻿2025-12-15T09:20:25.9922799Z Post job cleanup.
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.0872703Z [command]/usr/bin/git version
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.0911648Z git version 2.52.0
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.0958755Z Temporarily overriding HOME='/home/runner/work/_temp/80a30559-0b01-4c84-84a9-92ef2b88a742' before making global git config changes
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.0960176Z Adding repository directory to the temporary git global config as a safe directory
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.0965954Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.1006101Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.1042902Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.1266774Z fatal: No url found for submodule path 'euserv-renewal-bot' in .gitmodules
+renew-vps	Post Checkout repository	2025-12-15T09:20:26.1309480Z ##[warning]The process '/usr/bin/git' failed with exit code 128
+renew-vps	Complete job	﻿2025-12-15T09:20:26.1387599Z Cleaning up orphan processes

@@ -123,11 +123,12 @@ def _call_captcha_api(url, data, max_retries=3):
             api_response.raise_for_status()
             return api_response.json()
         except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response else 0
-            log(f"API返回HTTP错误: {status_code}")
-            if status_code >= 500 and attempt < max_retries - 1:
+            status_code = e.response.status_code if e.response is not None else 0
+            log(f"API返回HTTP错误: {status_code}, 消息: {e}")
+            # 对于5xx错误或无法获取状态码(0)的情况，都进行重试
+            if (status_code >= 500 or status_code == 0) and attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 5
-                log(f"服务器错误({status_code})，{wait_time}秒后重试...")
+                log(f"服务器错误，{wait_time}秒后重试...")
                 time.sleep(wait_time)
                 continue
             raise
