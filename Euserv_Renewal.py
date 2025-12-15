@@ -118,21 +118,24 @@ def _call_captcha_api(url, data, max_retries=3):
     """Call captcha API with retry for transient errors"""
     for attempt in range(max_retries):
         try:
+            log(f"API调用尝试 {attempt + 1}/{max_retries}...")
             api_response = requests.post(url=url, json=data, timeout=30)
             api_response.raise_for_status()
             return api_response.json()
         except requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response else 0
+            log(f"API返回HTTP错误: {status_code}")
             if status_code >= 500 and attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 5
-                log(f"API returned {status_code}, retrying in {wait_time}s...")
+                log(f"服务器错误({status_code})，{wait_time}秒后重试...")
                 time.sleep(wait_time)
                 continue
             raise
         except requests.exceptions.RequestException as e:
+            log(f"API请求异常: {e}")
             if attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 5
-                log(f"API request failed: {e}, retrying in {wait_time}s...")
+                log(f"网络错误，{wait_time}秒后重试...")
                 time.sleep(wait_time)
                 continue
             raise
