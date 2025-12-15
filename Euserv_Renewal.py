@@ -97,9 +97,7 @@ def solve_captcha(image_bytes):
     data_math = {
         'userid': CAPTCHA_USERID, 
         'apikey': CAPTCHA_APIKEY, 
-        'data': encoded_string,
-        'math': 1,
-        'numeric': 4
+        'data': encoded_string
     }
     
     api_response = requests.post(url=url, json=data_math)
