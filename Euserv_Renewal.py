@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Inspired by https://github.com/zensea/AutoEUServerlessWith2FA and https://github.com/WizisCool/AutoEUServerless
 
 import os
 import re
@@ -14,33 +15,6 @@ import smtplib
 from email.mime.text import MIMEText
 import hmac
 import struct
-
-
-# 自定义异常类
-class EuservError(Exception):
-    """Euserv 脚本基础异常"""
-    pass
-
-
-class CaptchaAPIError(EuservError):
-    """验证码 API 相关错误"""
-    pass
-
-
-class EmailFetchError(EuservError):
-    """邮件获取相关错误"""
-    pass
-
-
-class RenewalError(EuservError):
-    """续期流程相关错误"""
-    pass
-
-
-class LoginError(EuservError):
-    """登录相关错误"""
-    pass
-
 
 EUSERV_USERNAME = os.getenv('EUSERV_USERNAME')
 EUSERV_PASSWORD = os.getenv('EUSERV_PASSWORD')
@@ -103,6 +77,7 @@ def login_retry(max_retry):
             return "-1", None
         return wrapper
     return decorator
+
 def hotp(key, counter, digits=6, digest='sha1'):
     key = base64.b32decode(key.upper() + '=' * ((8 - len(key)) % 8))
     counter = struct.pack('>Q', counter)
@@ -113,34 +88,6 @@ def hotp(key, counter, digits=6, digest='sha1'):
 
 def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
-
-def _call_captcha_api(url, data, max_retries=3):
-    """Call captcha API with retry for transient errors"""
-    for attempt in range(max_retries):
-        try:
-            log(f"API调用尝试 {attempt + 1}/{max_retries}...")
-            api_response = requests.post(url=url, json=data, timeout=30)
-            api_response.raise_for_status()
-            return api_response.json()
-        except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response is not None else 0
-            log(f"API返回HTTP错误: {status_code}, 消息: {e}")
-            # 对于5xx错误或无法获取状态码(0)的情况，都进行重试
-            if (status_code >= 500 or status_code == 0) and attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 5
-                log(f"服务器错误，{wait_time}秒后重试...")
-                time.sleep(wait_time)
-                continue
-            raise
-        except requests.exceptions.RequestException as e:
-            log(f"API请求异常: {e}")
-            if attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 5
-                log(f"网络错误，{wait_time}秒后重试...")
-                time.sleep(wait_time)
-                continue
-            raise
-
 
 def solve_captcha(image_bytes):
     log("正在以“优先数学模式”调用TrueCaptcha API...")
@@ -155,94 +102,43 @@ def solve_captcha(image_bytes):
         'numeric': 4
     }
     
-    try:
-        result_data = _call_captcha_api(url, data_math)
-        if result_data.get('status') != 'error' and result_data.get('result'):
-            captcha_text = result_data.get('result')
-            log(f"API在数学模式下的初步识别结果: {captcha_text}")
-            try:
-                calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
-                log(f"数学模式成功，计算结果: {calculated_result}")
-                return calculated_result
-            except Exception:
-                log("数学模式计算失败，回退到文本模式...")
-    except Exception as e:
-        log(f"数学模式API调用失败: {e}，尝试文本模式...")
+    api_response = requests.post(url=url, json=data_math)
+    api_response.raise_for_status()
+    result_data = api_response.json()
+
+    if result_data.get('status') != 'error' and result_data.get('result'):
+        captcha_text = result_data.get('result')
+        log(f"API在数学模式下的初步识别结果: {captcha_text}")
+        try:
+            calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
+            log(f"数学模式成功，计算结果: {calculated_result}")
+            return calculated_result
+        except Exception:
+            log("数学模式计算失败，回退到文本模式...")
 
     log("正在以“纯文本模式”再次调用TrueCaptcha API...")
     data_text = {
         'userid': CAPTCHA_USERID, 
         'apikey': CAPTCHA_APIKEY, 
-        'data': encoded_string,
-        'math': 0
+        'data': encoded_string
     }
     
-    result_data = _call_captcha_api(url, data_text)
+    api_response = requests.post(url=url, json=data_text)
+    api_response.raise_for_status()
+    result_data = api_response.json()
 
     if result_data.get('status') == 'error':
-        raise CaptchaAPIError(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
+        raise Exception(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
     
     captcha_text = result_data.get('result')
     if not captcha_text:
-        raise CaptchaAPIError(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
+        raise Exception(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
     
     log(f"API在纯文本模式下的最终识别结果: {captcha_text}")
     return captcha_text
 
-def _handle_captcha(session, sess_id, headers, url, captcha_image_url):
-    """处理图片验证码验证，返回(成功与否, 响应对象)"""
-    log("检测到图片验证码，正在处理...")
-    image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
-    image_res.raise_for_status()
-    captcha_code = solve_captcha(image_res.content)
-    log(f"验证码计算结果是: {captcha_code}")
-    
-    response = session.post(
-        url, headers=headers,
-        data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
-    )
-    
-    if "To finish the login process please solve the following captcha." in response.text:
-        log("图片验证码验证失败")
-        return False, response
-    
-    log("图片验证码验证通过")
-    return True, response
-
-
-def _handle_2fa(session, headers, url, response_text):
-    """处理2FA双因素认证，返回(成功与否, 响应对象)"""
-    log("检测到需要2FA验证")
-    if not EUSERV_2FA:
-        log("未配置EUSERV_2FA Secret，无法进行2FA登录。")
-        return False, None
-    
-    two_fa_code = totp(EUSERV_2FA)
-    log(f"生成的2FA动态密码: {two_fa_code}")
-    
-    soup = BeautifulSoup(response_text, "html.parser")
-    hidden_inputs = soup.find_all("input", type="hidden")
-    two_fa_data = {inp["name"]: inp.get("value", "") for inp in hidden_inputs}
-    two_fa_data["pin"] = two_fa_code
-    
-    response = session.post(url, headers=headers, data=two_fa_data)
-    
-    if "To finish the login process enter the PIN that is shown in yout authenticator app." in response.text:
-        log("2FA验证失败")
-        return False, response
-    
-    log("2FA验证通过")
-    return True, response
-
-
-def _is_login_success(response_text):
-    """检查响应文本是否表示登录成功"""
-    return "Hello" in response_text or "Confirm or change your customer data here" in response_text
-
-
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
 def login(username, password):
-    """执行登录流程，处理验证码和2FA"""
     headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
     url = "https://support.euserv.com/index.iphp"
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
@@ -250,7 +146,8 @@ def login(username, password):
 
     sess_res = session.get(url, headers=headers)
     sess_res.raise_for_status()
-    sess_id = sess_res.cookies.get('PHPSESSID')
+    cookies = sess_res.cookies
+    sess_id = cookies.get('PHPSESSID')
     if not sess_id:
         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
     
@@ -263,86 +160,87 @@ def login(username, password):
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
 
-    # 直接登录成功
-    if _is_login_success(f.text):
+    if "Hello" not in f.text and "Confirm or change your customer data here" not in f.text:
+        if "To finish the login process please solve the following captcha." in f.text:
+            log("检测到图片验证码，正在处理...")
+            image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
+            image_res.raise_for_status()
+            captcha_code = solve_captcha(image_res.content)
+
+            log(f"验证码计算结果是: {captcha_code}")
+            f = session.post(
+                url, headers=headers,
+                data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
+            )
+            if "To finish the login process please solve the following captcha." in f.text:
+                log("图片验证码验证失败")
+                return "-1", session
+            log("图片验证码验证通过")
+
+        if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
+            log("检测到需要2FA验证")
+            if not EUSERV_2FA:
+                log("未配置EUSERV_2FA Secret，无法进行2FA登录。")
+                return "-1", session
+            
+            two_fa_code = totp(EUSERV_2FA)
+            log(f"生成的2FA动态密码: {two_fa_code}")
+            
+            soup = BeautifulSoup(f.text, "html.parser")
+            hidden_inputs = soup.find_all("input", type="hidden")
+            two_fa_data = {inp["name"]: inp.get("value", "") for inp in hidden_inputs}
+            two_fa_data["pin"] = two_fa_code
+            
+            f = session.post(url, headers=headers, data=two_fa_data)
+            if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
+                log("2FA验证失败")
+                return "-1", session
+            log("2FA验证通过")
+
+        if "Hello" in f.text or "Confirm or change your customer data here" in f.text:
+            log("登录成功")
+            return sess_id, session
+        else:
+            log("登录失败，所有验证尝试后仍未成功。")
+            return "-1", session
+    else:
         log("登录成功")
         return sess_id, session
-
-    # 处理图片验证码
-    if "To finish the login process please solve the following captcha." in f.text:
-        success, f = _handle_captcha(session, sess_id, headers, url, captcha_image_url)
-        if not success:
-            return "-1", session
-
-    # 处理2FA验证
-    if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
-        success, response = _handle_2fa(session, headers, url, f.text)
-        if not success:
-            return "-1", session
-        f = response
-
-    # 最终登录状态检查
-    if _is_login_success(f.text):
-        log("登录成功")
-        return sess_id, session
-    
-    log("登录失败，所有验证尝试后仍未成功。")
-    return "-1", session
-
-def _parse_email_body(msg):
-    """从邮件消息中提取纯文本正文"""
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                return part.get_payload(decode=True).decode()
-        return ""
-    return msg.get_payload(decode=True).decode()
-
-
-def _extract_pin_from_body(body):
-    """使用正则从邮件正文中提取PIN码"""
-    pin_match = re.search(r"PIN:\s*\n?(\d{6})", body, re.IGNORECASE)
-    return pin_match.group(1) if pin_match else None
-
-
-def _fetch_pin_email(mail, today_str):
-    """从邮箱中获取PIN码邮件并提取PIN"""
-    search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
-    status, messages = mail.search(None, search_criteria)
-    
-    if status != 'OK' or not messages[0]:
-        return None
-    
-    latest_email_id = messages[0].split()[-1]
-    _, data = mail.fetch(latest_email_id, '(RFC822)')
-    raw_email = data[0][1].decode('utf-8')
-    msg = email.message_from_string(raw_email)
-    
-    body = _parse_email_body(msg)
-    return _extract_pin_from_body(body)
-
 
 def get_pin_from_gmail(host, username, password):
-    """连接Gmail获取PIN码，最多重试3次"""
     log("正在连接Gmail获取PIN码...")
     today_str = date.today().strftime('%d-%b-%Y')
-    
     for i in range(3):
         try:
             with imaplib.IMAP4_SSL(host) as mail:
                 mail.login(username, password)
                 mail.select('inbox')
-                pin = _fetch_pin_email(mail, today_str)
-                if pin:
-                    log(f"成功从Gmail获取PIN码: {pin}")
-                    return pin
+                search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
+                status, messages = mail.search(None, search_criteria)
+                if status == 'OK' and messages[0]:
+                    latest_email_id = messages[0].split()[-1]
+                    _, data = mail.fetch(latest_email_id, '(RFC822)')
+                    raw_email = data[0][1].decode('utf-8')
+                    msg = email.message_from_string(raw_email)
+                    body = ""
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            if part.get_content_type() == "text/plain":
+                                body = part.get_payload(decode=True).decode()
+                                break
+                    else:
+                        body = msg.get_payload(decode=True).decode()
+                    pin_match = re.search(r"PIN:\s*\n?(\d{6})", body, re.IGNORECASE)
+                    if pin_match:
+                        pin = pin_match.group(1)
+                        log(f"成功从Gmail获取PIN码: {pin}")
+                        return pin
             log(f"第{i+1}次尝试：未找到PIN邮件，等待30秒...")
             time.sleep(30)
         except Exception as e:
             log(f"获取PIN码时发生错误: {e}")
             raise
-    
-    raise EmailFetchError("多次尝试后仍无法获取PIN码邮件。")
+    raise Exception("多次尝试后仍无法获取PIN码邮件。")
 
 def get_servers(sess_id, session):
     log("正在访问服务器列表页面...")
@@ -393,7 +291,7 @@ def renew(sess_id, session, order_id):
     f.raise_for_status()
     response_json = f.json()
     if response_json.get("rs") != "success":
-        raise RenewalError(f"获取Token失败: {f.text}")
+        raise Exception(f"获取Token失败: {f.text}")
     token = response_json["token"]["value"]
     log("成功获取续期Token")
     data4 = {
@@ -414,48 +312,10 @@ def check_status_after_renewal(sess_id, session):
         for server_id in servers_still_to_renew:
             log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
 
-def _log_server_status(all_servers, servers_to_renew):
-    """记录服务器续期状态信息"""
-    if not all_servers:
-        log("✅ 未检测到任何服务器合同。")
-        return
-    
-    if not servers_to_renew:
-        log("✅ 检测到所有服务器均无需续期。详情如下：")
-        for server in all_servers:
-            if not server["renewable"]:
-                log(f"   - 服务器 {server['id']}: 可续约日期为 {server['date']}")
-        return
-    
-    log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {[s['id'] for s in servers_to_renew]}")
-
-
-def _process_renewals(sess_id, session, servers_to_renew):
-    """对需要续期的服务器执行续期操作，返回是否有失败"""
-    has_failure = False
-    for server in servers_to_renew:
-        log(f"\n🔄 --- 正在为服务器 {server['id']} 执行续期 ---")
-        try:
-            renew(sess_id, session, server['id'])
-            log(f"✔️ 服务器 {server['id']} 的续期流程已成功提交。")
-        except Exception as e:
-            log(f"❌ 为服务器 {server['id']} 续期时发生严重错误: {e}")
-            has_failure = True
-    return has_failure
-
-
-def _check_required_config():
-    """检查必要的配置是否已设置"""
-    required = [EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]
-    return all(required)
-
-
 def main():
-    """主入口函数"""
-    if not _check_required_config():
+    if not all([EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]):
         log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
-        if LOG_MESSAGES:
-            send_status_email("配置错误", "\n".join(LOG_MESSAGES))
+        if LOG_MESSAGES: send_status_email("配置错误", "\n".join(LOG_MESSAGES))
         exit(1)
     
     status = "成功"
@@ -463,15 +323,28 @@ def main():
         log("--- 开始 Euserv 自动续期任务 ---")
         sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
         if sess_id == "-1" or s is None:
-            raise LoginError("登录失败")
+            raise Exception("登录失败")
             
         all_servers = get_servers(sess_id, s)
         servers_to_renew = [server for server in all_servers if server["renewable"]]
         
-        _log_server_status(all_servers, servers_to_renew)
-        
-        if servers_to_renew and _process_renewals(sess_id, s, servers_to_renew):
-            status = "失败"
+        if not all_servers:
+            log("✅ 未检测到任何服务器合同。")
+        elif not servers_to_renew:
+            log("✅ 检测到所有服务器均无需续期。详情如下：")
+            for server in all_servers:
+                if not server["renewable"]:
+                    log(f"   - 服务器 {server['id']}: 可续约日期为 {server['date']}")
+        else:
+            log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {[s['id'] for s in servers_to_renew]}")
+            for server in servers_to_renew:
+                log(f"\n🔄 --- 正在为服务器 {server['id']} 执行续期 ---")
+                try:
+                    renew(sess_id, s, server['id'])
+                    log(f"✔️ 服务器 {server['id']} 的续期流程已成功提交。")
+                except Exception as e:
+                    log(f"❌ 为服务器 {server['id']} 续期时发生严重错误: {e}")
+                    status = "失败"
         
         time.sleep(15)
         check_status_after_renewal(sess_id, s)
