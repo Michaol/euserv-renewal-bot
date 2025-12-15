@@ -122,20 +122,41 @@ def solve_captcha(image_bytes):
         'data': encoded_string
     }
     
-    api_response = requests.post(url=url, json=data_math)
-    api_response.raise_for_status()
-    result_data = api_response.json()
+    # Retry configuration
+    max_retries = 3
+    retry_delay = 5  # seconds
 
-    if result_data.get('status') != 'error' and result_data.get('result'):
-        captcha_text = result_data.get('result')
-        log(f"API在数学模式下的初步识别结果: {captcha_text}")
+    # Try Math Mode with validation
+    for attempt in range(max_retries):
         try:
-            calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
-            log(f"数学模式成功，计算结果: {calculated_result}")
-            return calculated_result
-        except Exception:
-            log("数学模式计算失败，回退到文本模式...")
+            api_response = requests.post(url=url, json=data_math, timeout=20)
+            api_response.raise_for_status()
+            result_data = api_response.json()
+            
+            if result_data.get('status') != 'error' and result_data.get('result'):
+                captcha_text = result_data.get('result')
+                log(f"API在数学模式下的初步识别结果: {captcha_text}")
+                try:
+                    calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
+                    log(f"数学模式成功，计算结果: {calculated_result}")
+                    return calculated_result
+                except Exception:
+                    log("数学模式计算失败，回退到文本模式...")
+                    break # Stop retrying math mode if parsing fails, move to text mode
+            else:
+                 log(f"API数学模式返回错误或结果为空: {result_data}")
+                 # Don't strictly break here, maybe retry? But usually result error is permanent.
+                 # Let's break to try text mode.
+                 break
+                 
+        except requests.RequestException as e:
+            log(f"数学模式API请求失败 (尝试 {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                log("数学模式多次请求失败，尝试切换到文本模式...")
 
+    # Fallback to Text Mode
     log("正在以“纯文本模式”再次调用TrueCaptcha API...")
     data_text = {
         'userid': CAPTCHA_USERID, 
@@ -143,19 +164,36 @@ def solve_captcha(image_bytes):
         'data': encoded_string
     }
     
-    api_response = requests.post(url=url, json=data_text)
-    api_response.raise_for_status()
-    result_data = api_response.json()
+    for attempt in range(max_retries):
+        try:
+             api_response = requests.post(url=url, json=data_text, timeout=20)
+             api_response.raise_for_status()
+             result_data = api_response.json()
 
-    if result_data.get('status') == 'error':
-        raise CaptchaError(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
-    
-    captcha_text = result_data.get('result')
-    if not captcha_text:
-        raise CaptchaError(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
-    
-    log(f"API在纯文本模式下的最终识别结果: {captcha_text}")
-    return captcha_text
+             if result_data.get('status') == 'error':
+                 raise CaptchaError(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
+             
+             captcha_text = result_data.get('result')
+             if not captcha_text:
+                 # It might be empty, retry?
+                 log(f"文本模式返回空结果: {result_data}")
+                 # If status is not error but result is empty, maybe retry.
+                 if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                 raise CaptchaError(f"未能从API的文本模式响应中获取验证码结果: {result_data}")
+             
+             log(f"API在纯文本模式下的最终识别结果: {captcha_text}")
+             return captcha_text
+
+        except requests.RequestException as e:
+             log(f"文本模式API请求失败 (尝试 {attempt+1}/{max_retries}): {e}")
+             if attempt < max_retries - 1:
+                 time.sleep(retry_delay)
+             else:
+                 raise CaptchaError(f"CAPTCHA API多次请求失败: {e}") from e
+
+    raise CaptchaError("验证码处理流程异常结束")
 
 def _handle_captcha(session, url, captcha_image_url, headers, sess_id):
     """处理图片验证码，返回更新后的响应"""
@@ -427,7 +465,7 @@ def main():
         check_status_after_renewal(sess_id, s)
         log("\n🏁 --- 所有工作完成 ---")
     
-    except (LoginError, RenewalError, PinRetrievalError) as e:
+    except (LoginError, RenewalError, PinRetrievalError, CaptchaError) as e:
         status = "失败"
         log(f"❗ 脚本执行过程中发生致命错误: {e}")
         raise
