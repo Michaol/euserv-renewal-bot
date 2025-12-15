@@ -114,6 +114,30 @@ def hotp(key, counter, digits=6, digest='sha1'):
 def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
 
+def _call_captcha_api(url, data, max_retries=3):
+    """Call captcha API with retry for transient errors"""
+    for attempt in range(max_retries):
+        try:
+            api_response = requests.post(url=url, json=data, timeout=30)
+            api_response.raise_for_status()
+            return api_response.json()
+        except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response else 0
+            if status_code >= 500 and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 5
+                log(f"API returned {status_code}, retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            raise
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 5
+                log(f"API request failed: {e}, retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            raise
+
+
 def solve_captcha(image_bytes):
     log("正在以“优先数学模式”调用TrueCaptcha API...")
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
@@ -127,19 +151,19 @@ def solve_captcha(image_bytes):
         'numeric': 4
     }
     
-    api_response = requests.post(url=url, json=data_math)
-    api_response.raise_for_status()
-    result_data = api_response.json()
-
-    if result_data.get('status') != 'error' and result_data.get('result'):
-        captcha_text = result_data.get('result')
-        log(f"API在数学模式下的初步识别结果: {captcha_text}")
-        try:
-            calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
-            log(f"数学模式成功，计算结果: {calculated_result}")
-            return calculated_result
-        except Exception:
-            log("数学模式计算失败，回退到文本模式...")
+    try:
+        result_data = _call_captcha_api(url, data_math)
+        if result_data.get('status') != 'error' and result_data.get('result'):
+            captcha_text = result_data.get('result')
+            log(f"API在数学模式下的初步识别结果: {captcha_text}")
+            try:
+                calculated_result = str(eval(captcha_text.replace('x', '*').replace('X', '*')))
+                log(f"数学模式成功，计算结果: {calculated_result}")
+                return calculated_result
+            except Exception:
+                log("数学模式计算失败，回退到文本模式...")
+    except Exception as e:
+        log(f"数学模式API调用失败: {e}，尝试文本模式...")
 
     log("正在以“纯文本模式”再次调用TrueCaptcha API...")
     data_text = {
@@ -149,9 +173,7 @@ def solve_captcha(image_bytes):
         'math': 0
     }
     
-    api_response = requests.post(url=url, json=data_text)
-    api_response.raise_for_status()
-    result_data = api_response.json()
+    result_data = _call_captcha_api(url, data_text)
 
     if result_data.get('status') == 'error':
         raise CaptchaAPIError(f"CAPTCHA API在文本模式下返回错误: {result_data.get('message')}")
