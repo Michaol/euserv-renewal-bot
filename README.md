@@ -29,7 +29,7 @@
 
 - 通过 GitHub Actions 自动续约 Euserv 免费 VPS。
 - 处理登录、会话及**两步验证(2FA)**。
-- 如遇图片验证码，则调用 TrueCaptcha API 自动识别。
+- **双保险验证码识别**：优先使用本地 OCR (`ddddocr`)，失败后自动切换到 TrueCaptcha API。
 - 通过 IMAP 连接 Gmail 邮箱，自动获取续约 PIN 码。
 - 完整实现包含 Token 验证的精确续约流程。
 - 每次运行后通过邮件发送状态报告。
@@ -43,7 +43,7 @@
 
 1.  一个正常使用的 **Euserv 免费 VPS** 账户。
 2.  一个 **Gmail 邮箱账户**，并已为其生成一个**应用专用密码**。
-3.  一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，并获取您的 `userid` 和 `apikey`。
+3.  **(可选)** 一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，作为本地 OCR 失败时的备用方案。
 4.  一个 **GitHub 账户**。
 
 #### 第 1 步：Fork 本仓库
@@ -56,17 +56,17 @@
 
 这是最关键的步骤。请进入您 Fork 后的仓库，点击 `Settings` -> `Secrets and variables` -> `Actions`，然后点击 `New repository secret` 按钮，逐一添加以下 Secret：
 
-| Secret 名称          | 示例值                          | 描述                                                        |
-| -------------------- | ------------------------------- | ----------------------------------------------------------- |
-| `EUSERV_USERNAME`    | `your_euserv_username`          | 用于登录 Euserv。                                           |
-| `EUSERV_PASSWORD`    | `your_euserv_password`          | 用于登录 Euserv。                                           |
-| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。 |
-| `CAPTCHA_USERID`     | `your_captcha_userid`           | 您在 TrueCaptcha 注册的 `userid`。                          |
-| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | 您的 TrueCaptcha `apikey`。                                 |
-| `EMAIL_HOST`         | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                  |
-| `EMAIL_USERNAME`     | `your_email@gmail.com`          | 您的完整邮箱地址。                                          |
-| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                  |
-| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                |
+| Secret 名称          | 示例值                          | 描述                                                               |
+| -------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `EUSERV_USERNAME`    | `your_euserv_username`          | 用于登录 Euserv。                                                  |
+| `EUSERV_PASSWORD`    | `your_euserv_password`          | 用于登录 Euserv。                                                  |
+| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。        |
+| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(可选)** 您在 TrueCaptcha 注册的 `userid`，作为本地 OCR 的备用。 |
+| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(可选)** 您的 TrueCaptcha `apikey`，作为本地 OCR 的备用。        |
+| `EMAIL_HOST`         | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                         |
+| `EMAIL_USERNAME`     | `your_email@gmail.com`          | 您的完整邮箱地址。                                                 |
+| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                         |
+| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                       |
 
 **请务必确保 Secret 名称与上表完全一致，并将示例值替换为您自己的真实信息。**
 
@@ -105,7 +105,7 @@
 
 - Automated renewal of Euserv free VPS via GitHub Actions.
 - Handles login, sessions, and **Two-Factor Authentication (2FA)**.
-- Solves CAPTCHAs automatically via the TrueCaptcha API if encountered.
+- **Hybrid CAPTCHA solving**: Uses local OCR (`ddddocr`) first, falls back to TrueCaptcha API if needed.
 - Retrieves renewal PINs from a Gmail account via IMAP.
 - Implements the complete and precise renewal workflow, including token exchange.
 - Sends a run status report to your email after each execution.
@@ -119,7 +119,7 @@ Please follow these steps carefully to get the workflow running.
 
 1.  An active **Euserv Free VPS** account.
 2.  A **Gmail account** for which you have generated an **App Password**.
-3.  A **TrueCaptcha** account (`apitruecaptcha.org`) with your `userid` and `apikey`.
+3.  **(Optional)** A **TrueCaptcha** account (`apitruecaptcha.org`) as a fallback for local OCR.
 4.  A **GitHub account**.
 
 #### Step 1: Fork the Repository
@@ -137,8 +137,8 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 | `EUSERV_USERNAME`    | `your_euserv_username`          | Your username for EUserv.                                                          |
 | `EUSERV_PASSWORD`    | `your_euserv_password`          | Your password for EUserv.                                                          |
 | `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(Optional)** The **Setup key** you get when enabling 2FA in your Euserv account. |
-| `CAPTCHA_USERID`     | `your_captcha_userid`           | Your `userid` from TrueCaptcha.                                                    |
-| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | Your `apikey` from TrueCaptcha.                                                    |
+| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(Optional)** Your `userid` from TrueCaptcha, used as fallback for local OCR.     |
+| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(Optional)** Your `apikey` from TrueCaptcha, used as fallback for local OCR.     |
 | `EMAIL_HOST`         | `imap.gmail.com`                | Your email provider's IMAP server.                                                 |
 | `EMAIL_USERNAME`     | `your_email@gmail.com`          | Your full email address.                                                           |
 | `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | Your email **App Password**.                                                       |
