@@ -3,7 +3,7 @@ name: Euserv VPS Renewal
 on:
   schedule:
     # 在每周日的00:00 (UTC) 运行
-    - cron: "0 0 * * 0"
+    - cron: '0 0 * * 0'
   workflow_dispatch:
 
 jobs:
@@ -16,11 +16,20 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Cache Virtual Environment
+        id: cache-venv
+        uses: actions/cache@v3
+        with:
+          path: venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('requirements.txt') }}
+
+      - name: Create venv and Install dependencies
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          python -m venv venv
+          source venv/bin/activate
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
@@ -35,4 +44,6 @@ jobs:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-        run: python Euserv_Renewal.py
+        run: |
+          source venv/bin/activate
+          python Euserv_Renewal.py
