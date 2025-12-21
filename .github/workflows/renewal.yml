@@ -3,7 +3,7 @@ name: Euserv VPS Renewal
 on:
   schedule:
     # 在每周日的00:00 (UTC) 运行
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Cache Virtual Environment
         id: cache-venv
@@ -47,3 +47,12 @@ jobs:
         run: |
           source venv/bin/activate
           python Euserv_Renewal.py
+
+      - name: Upload failed captcha for debugging
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captcha-failed
+          path: captcha_failed.png
+          if-no-files-found: ignore
+          retention-days: 7

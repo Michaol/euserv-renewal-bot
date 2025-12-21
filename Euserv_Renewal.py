@@ -216,19 +216,9 @@ def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username,
     log("检测到图片验证码，正在处理...")
     image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
     image_res.raise_for_status()
+    image_bytes = image_res.content
     
-    # 保存验证码图片用于调试
-    try:
-        import base64
-        captcha_b64 = base64.b64encode(image_res.content).decode('ascii')
-        log(f"验证码图片 (Base64): {captcha_b64[:100]}...")
-        with open('captcha_debug.png', 'wb') as f:
-            f.write(image_res.content)
-        log("验证码图片已保存到 captcha_debug.png")
-    except Exception as e:
-        log(f"保存验证码图片失败: {e}")
-    
-    captcha_code = solve_captcha(image_res.content)
+    captcha_code = solve_captcha(image_bytes)
 
     log(f"验证码计算结果是: {captcha_code}")
     post_data = {
@@ -242,6 +232,13 @@ def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username,
     
     if "To finish the login process please solve the following captcha." in response.text:
         log("图片验证码验证失败")
+        # 验证失败时保存验证码图片用于调试
+        try:
+            with open('captcha_failed.png', 'wb') as f:
+                f.write(image_bytes)
+            log(f"失败的验证码图片已保存到 captcha_failed.png，识别结果为: {captcha_code}")
+        except Exception as e:
+            log(f"保存验证码图片失败: {e}")
         return None
     log("图片验证码验证通过")
     return response
