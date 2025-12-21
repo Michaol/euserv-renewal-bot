@@ -56,6 +56,7 @@ LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 30
 
 LOG_MESSAGES = []
+CURRENT_LOGIN_ATTEMPT = 1
 
 def log(info: str):
     print(info)
@@ -88,7 +89,9 @@ def send_status_email(subject_status, log_content):
 def login_retry(max_retry):
     def decorator(func):
         def wrapper(*args, **kwargs):
+            global CURRENT_LOGIN_ATTEMPT
             for i in range(max_retry):
+                CURRENT_LOGIN_ATTEMPT = i + 1
                 if i > 0:
                     log(f"登录尝试第 {i + 1}/{max_retry} 次...")
                     time.sleep(5)
@@ -173,22 +176,31 @@ def _solve_captcha_api(image_bytes):
 
 
 def solve_captcha(image_bytes):
-    """双保险验证码识别：本地优先，API兜底"""
+    """双保险验证码识别：本地优先，第3次尝试起强制使用API兜底"""
     
-    # 第一阶段：尝试本地 OCR (最多3次)
+    # 获取全局重试次数
+    global CURRENT_LOGIN_ATTEMPT
+    
+    # 如果是第3次（或更多次）尝试，且配置了 API，则直接使用 API
+    if CURRENT_LOGIN_ATTEMPT >= 3 and CAPTCHA_USERID and CAPTCHA_APIKEY:
+        log(f"检测到第 {CURRENT_LOGIN_ATTEMPT} 次登录尝试，为保证成功率，直接切换到 TrueCaptcha API...")
+        result = _solve_captcha_api(image_bytes)
+        if result:
+            log(f"API 识别成功: {result}")
+            return result
+    
+    # 否则优先尝试本地 OCR
     log("正在使用本地 OCR (ddddocr) 识别验证码...")
-    for attempt in range(3):
-        try:
-            result = _solve_captcha_local(image_bytes)
-            if result:
-                log(f"本地 OCR 识别成功: {result}")
-                return result
-            log(f"本地 OCR 返回空结果 (尝试 {attempt+1}/3)")
-        except Exception as e:
-            log(f"本地 OCR 识别失败 (尝试 {attempt+1}/3): {e}")
+    try:
+        result = _solve_captcha_local(image_bytes)
+        if result:
+            log(f"本地 OCR 识别成功: {result}")
+            return result
+    except Exception as e:
+        log(f"本地 OCR 识别报错: {e}")
     
-    # 第二阶段：回退到 TrueCaptcha API
-    log("本地 OCR 多次失败，切换到 TrueCaptcha API...")
+    # 如果本地识别失败（返回 None 或报错），回退到 API
+    log("本地 OCR 识别失败，尝试切换到 TrueCaptcha API...")
     if CAPTCHA_USERID and CAPTCHA_APIKEY:
         result = _solve_captcha_api(image_bytes)
         if result:
@@ -196,10 +208,10 @@ def solve_captcha(image_bytes):
             return result
         raise CaptchaError("TrueCaptcha API 也无法识别验证码")
     else:
-        raise CaptchaError("本地 OCR 失败且未配置 API 凭据")
+        raise CaptchaError("本地 OCR 识别失败且未配置 API 凭据")
 
 
-def _handle_captcha(session, url, captcha_image_url, headers, sess_id):
+def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username, password):
     """处理图片验证码，返回更新后的响应"""
     log("检测到图片验证码，正在处理...")
     image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
@@ -207,10 +219,15 @@ def _handle_captcha(session, url, captcha_image_url, headers, sess_id):
     captcha_code = solve_captcha(image_res.content)
 
     log(f"验证码计算结果是: {captcha_code}")
-    response = session.post(
-        url, headers=headers,
-        data={"subaction": "login", "sess_id": sess_id, "captcha_code": str(captcha_code)}
-    )
+    post_data = {
+        "email": username, 
+        "password": password, 
+        "subaction": "login", 
+        "sess_id": sess_id, 
+        "captcha_code": str(captcha_code)
+    }
+    response = session.post(url, headers=headers, data=post_data)
+    
     if "To finish the login process please solve the following captcha." in response.text:
         log("图片验证码验证失败")
         return None
@@ -274,7 +291,7 @@ def login(username, password):
 
     # 处理验证码
     if "To finish the login process please solve the following captcha." in f.text:
-        f = _handle_captcha(session, url, captcha_image_url, headers, sess_id)
+        f = _handle_captcha(session, url, captcha_image_url, headers, sess_id, username, password)
         if f is None:
             return "-1", session
 
