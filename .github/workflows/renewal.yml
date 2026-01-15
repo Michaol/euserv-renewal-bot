@@ -2,8 +2,8 @@ name: Euserv VPS Renewal
 
 on:
   schedule:
-    # 在每周日的00:00 (UTC) 运行
-    - cron: "0 0 * * 0"
+    # 动态调度: 此 cron 会被脚本自动更新为下次续约日期
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -33,7 +33,8 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run renewal script
+      - name: Run renewal script with retry
+        id: renewal
         env:
           EUSERV_USERNAME: ${{ secrets.EUSERV_USERNAME }}
           EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
@@ -48,7 +49,49 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
         run: |
           source venv/bin/activate
-          python Euserv_Renewal.py
+          
+          MAX_RETRIES=3
+          RETRY_DELAY=1800  # 30分钟 (秒)
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "========================================="
+            echo "🔄 尝试 $i/$MAX_RETRIES - $(date)"
+            echo "========================================="
+            
+            python Euserv_Renewal.py
+            EXIT_CODE=$?
+            
+            # 退出码处理
+            case $EXIT_CODE in
+              0)
+                echo "✅ 续约成功或无需续约"
+                exit 0
+                ;;
+              2)
+                echo "⏭️ 未到续约日期，跳过执行"
+                exit 0
+                ;;
+              *)
+                echo "❌ 续约失败 (退出码: $EXIT_CODE)"
+                if [ $i -lt $MAX_RETRIES ]; then
+                  echo "⏳ 等待 30 分钟后重试..."
+                  sleep $RETRY_DELAY
+                fi
+                ;;
+            esac
+          done
+          
+          echo "💥 所有 $MAX_RETRIES 次重试均失败"
+          exit 1
+
+      - name: Update schedule for next renewal
+        if: steps.renewal.outputs.next_cron != ''
+        uses: gr2m/set-cron-schedule-action@v2
+        with:
+          token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
+          cron: ${{ steps.renewal.outputs.next_cron }}
+          workflow: renewal.yml
+          message: "ci(renewal): 更新下次续约时间为 ${{ steps.renewal.outputs.next_date }}"
 
       - name: Upload failed captcha for debugging
         if: failure()
@@ -58,3 +101,4 @@ jobs:
           path: captcha_failed.png
           if-no-files-found: ignore
           retention-days: 7
+

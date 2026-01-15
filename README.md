@@ -9,21 +9,45 @@
 ## 目录
 
 - [中文版](#中文版)
+  - [更新记录](#更新记录)
   - [功能特性](#功能特性)
   - [配置指南](#配置指南)
   - [定时任务配置](#定时任务配置)
-  - [许可证](#许可证-1)
+  - [许可证](#许可证)
   - [免责声明](#免责声明)
 - [English Version](#english-version)
-  - [Features](#features-1)
-  - [Setup Guide](#setup-guide-1)
-  - [Schedule Configuration](#schedule-configuration-1)
+  - [Changelog](#changelog)
+  - [Features](#features)
+  - [Setup Guide](#setup-guide)
+  - [Schedule Configuration](#schedule-configuration)
   - [License](#license)
-  - [Disclaimer](#disclaimer-1)
+  - [Disclaimer](#disclaimer)
 
 ---
 
 ## 中文版
+
+### 更新记录
+
+#### v2.0.0 (2026-01-15) - 中文
+
+##### 安全性与稳定性
+
+- 🔒 移除不安全的 `eval()`，替换为基于 AST 的安全表达式解析器
+- ⏱️ 为所有 HTTP 请求添加 30 秒超时，防止脚本挂起
+- 📦 锁定依赖版本，确保构建一致性
+
+##### 代码质量
+
+- 🏗️ 新增 `RenewalBot` 类封装全局状态，提高可测试性
+- 🧪 添加 21 个单元测试覆盖核心功能
+- 📝 添加类型注解和 `LogLevel` 枚举统一日志格式
+- ⚡ OCR 实例缓存，避免重复加载模型
+
+##### 配置增强
+
+- 📧 支持自定义 `SMTP_HOST` 和 `SMTP_PORT` 环境变量
+- ✅ 新增启动时配置验证，明确提示缺失项
 
 ### 功能特性
 
@@ -41,10 +65,10 @@
 
 #### 准备工作
 
-1.  一个正常使用的 **Euserv 免费 VPS** 账户。
-2.  一个 **Gmail 邮箱账户**，并已为其生成一个**应用专用密码**。
-3.  **(可选)** 一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，作为本地 OCR 失败时的备用方案。
-4.  一个 **GitHub 账户**。
+1. 一个正常使用的 **Euserv 免费 VPS** 账户。
+2. 一个 **Gmail 邮箱账户**，并已为其生成一个**应用专用密码**。
+3. **(可选)** 一个 **TrueCaptcha 账户** (`apitruecaptcha.org`)，作为本地 OCR 失败时的备用方案。
+4. 一个 **GitHub 账户**。
 
 #### 第 1 步：Fork 本仓库
 
@@ -56,19 +80,20 @@
 
 这是最关键的步骤。请进入您 Fork 后的仓库，点击 `Settings` -> `Secrets and variables` -> `Actions`，然后点击 `New repository secret` 按钮，逐一添加以下 Secret：
 
-| Secret 名称          | 示例值                          | 描述                                                                |
-| -------------------- | ------------------------------- | ------------------------------------------------------------------- |
-| `EUSERV_USERNAME`    | `your_euserv_username`          | 用于登录 Euserv。                                                   |
-| `EUSERV_PASSWORD`    | `your_euserv_password`          | 用于登录 Euserv。                                                   |
-| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。         |
-| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(可选)** 您在 TrueCaptcha 注册的 `userid`，作为本地 OCR 的备用。  |
-| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(可选)** 您的 TrueCaptcha `apikey`，作为本地 OCR 的备用。         |
-| `EMAIL_HOST`         | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                          |
-| `EMAIL_USERNAME`     | `your_email@gmail.com`          | 您的完整邮箱地址。                                                  |
-| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                          |
-| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                        |
-| `SMTP_HOST`          | `smtp.gmail.com`                | **(可选)** 手动指定 SMTP 服务器。若不提供，将尝试从 IMAP 配置推断。 |
-| `SMTP_PORT`          | `587`                           | **(可选)** 手动指定 SMTP 端口。默认为 587。                         |
+| Secret 名称               | 示例值                          | 描述                                                                                                                              |
+| ------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `EUSERV_USERNAME`         | `your_euserv_username`          | 用于登录 Euserv。                                                                                                                 |
+| `EUSERV_PASSWORD`         | `your_euserv_password`          | 用于登录 Euserv。                                                                                                                 |
+| `EUSERV_2FA`              | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。                                                                       |
+| `CAPTCHA_USERID`          | `your_captcha_userid`           | **(可选)** 您在 TrueCaptcha 注册的 `userid`，作为本地 OCR 的备用。                                                                |
+| `CAPTCHA_APIKEY`          | `xxxxxxxxxxxxxxxxxxxx`          | **(可选)** 您的 TrueCaptcha `apikey`，作为本地 OCR 的备用。                                                                       |
+| `EMAIL_HOST`              | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                                                                                        |
+| `EMAIL_USERNAME`          | `your_email@gmail.com`          | 您的完整邮箱地址。                                                                                                                |
+| `EMAIL_PASSWORD`          | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                                                                                        |
+| `NOTIFICATION_EMAIL`      | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                                                                                      |
+| `SMTP_HOST`               | `smtp.gmail.com`                | **(可选)** 手动指定 SMTP 服务器。若不提供，将尝试从 IMAP 配置推断。                                                               |
+| `SMTP_PORT`               | `587`                           | **(可选)** 手动指定 SMTP 端口。默认为 587。                                                                                       |
+| `PAT_WITH_WORKFLOW_SCOPE` | `ghp_xxxxxxxxxxxx`              | **(推荐)** 用于动态调度的 [Personal Access Token](https://github.com/settings/tokens/new?scopes=workflow)，需要 `workflow` 权限。 |
 
 **请务必确保 Secret 名称与上表完全一致，并将示例值替换为您自己的真实信息。**
 
@@ -76,18 +101,25 @@
 
 #### 第 3 步：手动运行工作流进行测试
 
-1.  点击仓库顶部的 `Actions` 标签页。
-2.  在左侧选择 `Euserv VPS Renewal` 工作流。
-3.  点击 `Run workflow` 按钮来手动触发一次运行。
-4.  您可以点击运行中的任务，实时查看日志输出。
+1. 点击仓库顶部的 `Actions` 标签页。
+2. 在左侧选择 `Euserv VPS Renewal` 工作流。
+3. 点击 `Run workflow` 按钮来手动触发一次运行。
+4. 您可以点击运行中的任务，实时查看日志输出。
 
 脚本默认在请求 PIN 码后等待 **30 秒** 再去邮箱中读取。如果您的邮件接收有延迟，可以修改 `Euserv_Renewal.py` 文件顶部的 `WAITING_TIME_OF_PIN` 常量，例如改为 `60`。
 
 ### 定时任务配置
 
-默认情况下，续约任务被设置为在**每周日的凌晨 0 点 (UTC 时间)** 运行。对应的`cron`表达式为 `0 0 * * 0`。
+脚本采用**动态调度机制**：
 
-如果您想修改这个时间，可以编辑 `.github/workflows/renewal.yml` 文件中的 `cron` 表达式。
+| 特性     | 说明                                                               |
+| -------- | ------------------------------------------------------------------ |
+| 动态调度 | 续约完成后自动更新 cron 为下次续约日期，只在需要时运行，零额外消耗 |
+| 失败重试 | 失败后每 30 分钟重试，最多 3 次                                    |
+| 跨天续试 | 当天全部失败后，第二天自动继续尝试                                 |
+| PAT 要求 | 需要配置 `PAT_WITH_WORKFLOW_SCOPE` Secret 以启用动态调度           |
+
+创建 PAT：[点击这里](https://github.com/settings/tokens/new?scopes=workflow) （勾选 `workflow` 权限）
 
 ### 许可证
 
@@ -102,6 +134,28 @@
 ---
 
 ## English Version
+
+### Changelog
+
+#### v2.0.0 (2026-01-15) - English
+
+##### Security and Stability
+
+- 🔒 Replaced unsafe `eval()` with AST-based safe expression parser
+- ⏱️ Added 30-second timeout to all HTTP requests
+- 📦 Locked dependency versions for consistent builds
+
+##### Code Quality
+
+- 🏗️ Added `RenewalBot` class to encapsulate global state
+- 🧪 Added 21 unit tests covering core functionality
+- 📝 Added type annotations and `LogLevel` enum for unified logging
+- ⚡ Cached OCR instance to avoid reloading model
+
+##### Configuration
+
+- 📧 Support for custom `SMTP_HOST` and `SMTP_PORT` environment variables
+- ✅ Added startup config validation with clear error messages
 
 ### Features
 
@@ -119,10 +173,10 @@ Please follow these steps carefully to get the workflow running.
 
 #### Prerequisites
 
-1.  An active **Euserv Free VPS** account.
-2.  A **Gmail account** for which you have generated an **App Password**.
-3.  **(Optional)** A **TrueCaptcha** account (`apitruecaptcha.org`) as a fallback for local OCR.
-4.  A **GitHub account**.
+1. An active **Euserv Free VPS** account.
+2. A **Gmail account** for which you have generated an **App Password**.
+3. **(Optional)** A **TrueCaptcha** account (`apitruecaptcha.org`) as a fallback for local OCR.
+4. A **GitHub account**.
 
 #### Step 1: Fork the Repository
 
@@ -134,19 +188,20 @@ Click the **`Fork`** button at the top-right of this page to copy this project t
 
 This is the most critical step. Navigate to your forked repository, go to `Settings` -> `Secrets and variables` -> `Actions`, and click `New repository secret` to add each of the following secrets:
 
-| Secret Name          | Example Value                   | Description                                                                        |
-| -------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
-| `EUSERV_USERNAME`    | `your_euserv_username`          | Your username for EUserv.                                                          |
-| `EUSERV_PASSWORD`    | `your_euserv_password`          | Your password for EUserv.                                                          |
-| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(Optional)** The **Setup key** you get when enabling 2FA in your Euserv account. |
-| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(Optional)** Your `userid` from TrueCaptcha, used as fallback for local OCR.     |
-| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(Optional)** Your `apikey` from TrueCaptcha, used as fallback for local OCR.     |
-| `EMAIL_HOST`         | `imap.gmail.com`                | Your email provider's IMAP server.                                                 |
-| `EMAIL_USERNAME`     | `your_email@gmail.com`          | Your full email address.                                                           |
-| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | Your email **App Password**.                                                       |
-| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | The email address to receive status reports.                                       |
-| `SMTP_HOST`          | `smtp.gmail.com`                | **(Optional)** Manually specify SMTP server. Infers from IMAP if not provided.     |
-| `SMTP_PORT`          | `587`                           | **(Optional)** Manually specify SMTP port. Defaults to 587.                        |
+| Secret Name               | Example Value                   | Description                                                                                                                                          |
+| ------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EUSERV_USERNAME`         | `your_euserv_username`          | Your username for EUserv.                                                                                                                            |
+| `EUSERV_PASSWORD`         | `your_euserv_password`          | Your password for EUserv.                                                                                                                            |
+| `EUSERV_2FA`              | `ABCD1234EFGH5678`              | **(Optional)** The **Setup key** you get when enabling 2FA in your Euserv account.                                                                   |
+| `CAPTCHA_USERID`          | `your_captcha_userid`           | **(Optional)** Your `userid` from TrueCaptcha, used as fallback for local OCR.                                                                       |
+| `CAPTCHA_APIKEY`          | `xxxxxxxxxxxxxxxxxxxx`          | **(Optional)** Your `apikey` from TrueCaptcha, used as fallback for local OCR.                                                                       |
+| `EMAIL_HOST`              | `imap.gmail.com`                | Your email provider's IMAP server.                                                                                                                   |
+| `EMAIL_USERNAME`          | `your_email@gmail.com`          | Your full email address.                                                                                                                             |
+| `EMAIL_PASSWORD`          | `abcd efgh ijkl mnop`           | Your email **App Password**.                                                                                                                         |
+| `NOTIFICATION_EMAIL`      | `your_notify_email@example.com` | The email address to receive status reports.                                                                                                         |
+| `SMTP_HOST`               | `smtp.gmail.com`                | **(Optional)** Manually specify SMTP server. Infers from IMAP if not provided.                                                                       |
+| `SMTP_PORT`               | `587`                           | **(Optional)** Manually specify SMTP port. Defaults to 587.                                                                                          |
+| `PAT_WITH_WORKFLOW_SCOPE` | `ghp_xxxxxxxxxxxx`              | **(Recommended)** [Personal Access Token](https://github.com/settings/tokens/new?scopes=workflow) for dynamic scheduling. Requires `workflow` scope. |
 
 **Ensure the secret names are copied exactly and replace the example values with your own real information.**
 
@@ -154,18 +209,25 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 
 #### Step 3: Manually Run the Workflow to Test
 
-1.  Go to the **`Actions`** tab in your repository.
-2.  Select the **`Euserv VPS Renewal`** workflow from the sidebar.
-3.  Click the **`Run workflow`** button to trigger a manual run.
-4.  You can click on the running job to view the live logs.
+1. Go to the **`Actions`** tab in your repository.
+2. Select the **`Euserv VPS Renewal`** workflow from the sidebar.
+3. Click the **`Run workflow`** button to trigger a manual run.
+4. You can click on the running job to view the live logs.
 
 By default, the script waits for **30 seconds** after requesting a PIN before checking your email. If you experience email delays, you can edit the `WAITING_TIME_OF_PIN` constant at the top of the `Euserv_Renewal.py` file (e.g., set it to `60`).
 
 ### Schedule Configuration
 
-By default, the renewal job is scheduled to run at **00:00 UTC on every Sunday**. The corresponding `cron` expression is `0 0 * * 0`.
+The script uses a **dynamic scheduling mechanism**:
 
-If you wish to change this schedule, you can edit the `cron` expression in the `.github/workflows/renewal.yml` file.
+| Feature          | Description                                                                     |
+| ---------------- | ------------------------------------------------------------------------------- |
+| Dynamic Schedule | Automatically updates cron to next renewal date after completion, zero overhead |
+| Retry on Failure | Retries every 30 minutes on failure, up to 3 times                              |
+| Cross-day Retry  | Automatically retries the next day if all attempts fail                         |
+| PAT Required     | Requires `PAT_WITH_WORKFLOW_SCOPE` Secret for dynamic scheduling                |
+
+Create PAT: [Create a Personal Access Token with workflow scope](https://github.com/settings/tokens/new?scopes=workflow)
 
 ### License
 

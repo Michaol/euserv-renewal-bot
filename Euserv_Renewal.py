@@ -65,10 +65,18 @@ POST_RENEWAL_CHECK_DELAY = 15
 EMAIL_CHECK_INTERVAL = 30
 EMAIL_MAX_RETRIES = 3
 
+# 退出码定义 (用于智能调度)
+EXIT_SUCCESS = 0      # 续约成功或无需续约
+EXIT_FAILURE = 1      # 续约失败，需要重试
+EXIT_SKIPPED = 2      # 未到续约日期，跳过执行
+
 # SMTP 配置 (可选环境变量)
 SMTP_HOST = os.getenv('SMTP_HOST') or (EMAIL_HOST.replace("imap", "smtp") if EMAIL_HOST else None)
 _smtp_port_env = os.getenv('SMTP_PORT')
 SMTP_PORT = int(_smtp_port_env) if _smtp_port_env and _smtp_port_env.strip() else 587
+
+# GitHub Actions 输出文件
+GITHUB_OUTPUT = os.getenv('GITHUB_OUTPUT')
 
 LOG_MESSAGES: list[str] = []
 CURRENT_LOGIN_ATTEMPT = 1
@@ -177,20 +185,32 @@ def safe_eval_math(expr: str) -> int | None:
     except (SyntaxError, ValueError, TypeError, ZeroDivisionError):
         return None
 
+
+# OCR 实例缓存（懒加载单例）
+_ocr_instance = None
+
+
+def _get_ocr():
+    """获取或创建 OCR 实例（懒加载单例，避免重复加载模型）"""
+    global _ocr_instance
+    if _ocr_instance is None:
+        import ddddocr
+        _ocr_instance = ddddocr.DdddOcr(show_ad=False)
+    return _ocr_instance
+
+
 def _solve_captcha_local(image_bytes):
     """使用本地 ddddocr 识别验证码"""
-    import ddddocr
-    
-    ocr = ddddocr.DdddOcr(show_ad=False)
+    ocr = _get_ocr()  # 使用缓存实例
     captcha_text = ocr.classification(image_bytes)
-    
+
     if not captcha_text:
         return None
-    
+
     # 尝试作为数学表达式计算
     math_text = captcha_text.replace('x', '*').replace('X', '*').replace('=', '').strip()
     cleaned = ''.join(c for c in math_text if c in '0123456789+-*/')
-    
+
     if cleaned and any(op in cleaned for op in ['+', '-', '*', '/']):
         result = safe_eval_math(cleaned)
         if result is not None:
@@ -501,65 +521,190 @@ def check_status_after_renewal(sess_id, session):
 
 
 
-def _log_non_renewable_servers(all_servers):
-    """记录无需续期的服务器信息"""
-    log("检测到所有服务器均无需续期。详情如下：", LogLevel.SUCCESS)
-    for server in all_servers:
-        if not server["renewable"]:
-            log(f"   - 服务器 {server['id']}: 可续约日期为 {server['date']}")
-
-
-def _process_renewals(sess_id, session, servers_to_renew):
-    """处理服务器续期，返回是否全部成功"""
-    log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {[s['id'] for s in servers_to_renew]}")
-    all_success = True
-    for server in servers_to_renew:
-        log(f"\n🔄 --- 正在为服务器 {server['id']} 执行续期 ---")
+class RenewalBot:
+    """
+    Euserv VPS 自动续期机器人类。
+    
+    封装了全局状态，提供更好的可测试性和可维护性。
+    """
+    
+    def __init__(self):
+        """初始化机器人实例。"""
+        self.log_messages: list[str] = []
+        self.current_login_attempt = 1
+        self.session: requests.Session | None = None
+        self.sess_id: str | None = None
+    
+    def log(self, info: str, level: LogLevel = LogLevel.INFO) -> None:
+        """记录日志消息到实例日志列表。"""
+        formatted = f"{level.value} {info}" if level != LogLevel.INFO else info
+        print(formatted)
+        self.log_messages.append(formatted)
+    
+    def validate_config(self) -> tuple[bool, list[str]]:
+        """验证必需配置，返回 (是否通过, 缺失项列表)。"""
+        required = {
+            "EUSERV_USERNAME": EUSERV_USERNAME,
+            "EUSERV_PASSWORD": EUSERV_PASSWORD,
+            "EMAIL_HOST": EMAIL_HOST,
+            "EMAIL_USERNAME": EMAIL_USERNAME,
+            "EMAIL_PASSWORD": EMAIL_PASSWORD,
+        }
+        missing = [k for k, v in required.items() if not v]
+        return len(missing) == 0, missing
+    
+    def send_status_email(self, subject_status: str) -> None:
+        """发送状态通知邮件。"""
+        if not (NOTIFICATION_EMAIL and EMAIL_USERNAME and EMAIL_PASSWORD):
+            self.log("邮件通知所需的一个或多个Secrets未设置，跳过发送邮件。")
+            return
+        if not SMTP_HOST:
+            self.log("无法推断 SMTP 服务器地址，跳过发送邮件。")
+            return
+        self.log("正在准备发送状态通知邮件...")
+        sender = EMAIL_USERNAME
+        recipient = NOTIFICATION_EMAIL
+        subject = f"Euserv 续约脚本运行报告 - {subject_status}"
+        body = "Euserv 自动续约脚本本次运行的详细日志如下：\n\n" + "\n".join(self.log_messages)
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = recipient
         try:
-            renew(sess_id, session, server['id'])
-            log(f"服务器 {server['id']} 的续期流程已成功提交。", LogLevel.SUCCESS)
-        except (RenewalError, requests.RequestException) as e:
-            log(f"为服务器 {server['id']} 续期时发生严重错误: {e}", LogLevel.ERROR)
-            all_success = False
-    return all_success
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+            server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+            server.sendmail(sender, [recipient], msg.as_string())
+            server.quit()
+            self.log("状态通知邮件已成功发送！", LogLevel.CELEBRATION)
+        except Exception as e:
+            self.log(f"发送邮件失败: {e}", LogLevel.ERROR)
+
+    def _perform_login(self) -> tuple[str, requests.Session]:
+        """执行登录流程。"""
+        sess_id, session = login(EUSERV_USERNAME, EUSERV_PASSWORD)
+        if sess_id == "-1" or session is None:
+            raise LoginError("登录失败")
+        self.sess_id = sess_id
+        self.session = session
+        return sess_id, session
+
+    def _log_non_renewable_servers(self, all_servers: list) -> None:
+        """记录无需续期的服务器信息并输出下次续约日期。"""
+        self.log("检测到所有服务器均无需续期。详情如下：", LogLevel.SUCCESS)
+        earliest_date = None
+        for server in all_servers:
+            if not server["renewable"]:
+                self.log(f"   - 服务器 {server['id']}: 可续约日期为 {server['date']}")
+                # 记录最早的续约日期
+                if server['date'] and server['date'] != "未知日期":
+                    if earliest_date is None or server['date'] < earliest_date:
+                        earliest_date = server['date']
+        
+        # 输出下次续约日期的 cron 表达式到 GITHUB_OUTPUT
+        if earliest_date and GITHUB_OUTPUT:
+            self._output_next_schedule(earliest_date)
+    
+    def _output_next_schedule(self, date_str: str) -> None:
+        """输出下次续约日期的 cron 表达式到 GITHUB_OUTPUT。"""
+        try:
+            # 解析日期 (YYYY-MM-DD)
+            parts = date_str.split('-')
+            if len(parts) == 3:
+                _, month, day = parts
+                # 生成 cron 表达式: 分 时 日 月 周 (0 0 DD MM *)
+                cron_expr = f"0 0 {int(day)} {int(month)} *"
+                self.log(f"📅 下次续约日期: {date_str}", LogLevel.INFO)
+                self.log(f"🔄 设置下次运行 cron: {cron_expr}", LogLevel.INFO)
+                
+                # 写入 GITHUB_OUTPUT
+                with open(GITHUB_OUTPUT, 'a') as f:
+                    f.write(f"next_cron={cron_expr}\n")
+                    f.write(f"next_date={date_str}\n")
+        except Exception as e:
+            self.log(f"解析续约日期失败: {e}", LogLevel.WARNING)
+
+    def _process_server_renewals(self, sess_id: str, session: requests.Session, 
+                                  servers_to_renew: list) -> bool:
+        """处理服务器续期，返回是否全部成功。"""
+        self.log(f"🔍 检测到 {len(servers_to_renew)} 台服务器需要续期: {[s['id'] for s in servers_to_renew]}")
+        all_success = True
+        for server in servers_to_renew:
+            self.log(f"\n🔄 --- 正在为服务器 {server['id']} 执行续期 ---")
+            try:
+                renew(sess_id, session, server['id'])
+                self.log(f"服务器 {server['id']} 的续期流程已成功提交。", LogLevel.SUCCESS)
+            except (RenewalError, requests.RequestException) as e:
+                self.log(f"为服务器 {server['id']} 续期时发生严重错误: {e}", LogLevel.ERROR)
+                all_success = False
+        return all_success
+
+    def _check_post_renewal_status(self, sess_id: str, session: requests.Session) -> None:
+        """检查续期后的服务器状态。"""
+        time.sleep(POST_RENEWAL_CHECK_DELAY)
+        server_list = get_servers(sess_id, session)
+        servers_still_to_renew = [sv["id"] for sv in server_list if sv["renewable"]]
+        if not servers_still_to_renew:
+            self.log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
+        else:
+            for server_id in servers_still_to_renew:
+                self.log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
+
+    def run(self) -> int:
+        """执行续期任务的主入口。
+        
+        Returns:
+            EXIT_SUCCESS (0): 续约成功或无需续约
+            EXIT_FAILURE (1): 续约失败
+            EXIT_SKIPPED (2): 未到续约日期
+        """
+        config_ok, missing = self.validate_config()
+        if not config_ok:
+            self.log(f"必要的配置未设置: {', '.join(missing)}", LogLevel.ERROR)
+            if self.log_messages:
+                self.send_status_email("配置错误")
+            return EXIT_FAILURE
+
+        status = "成功"
+        exit_code = EXIT_SUCCESS
+        try:
+            self.log("--- 开始 Euserv 自动续期任务 ---")
+            sess_id, s = self._perform_login()
+
+            all_servers = get_servers(sess_id, s)
+            servers_to_renew = [server for server in all_servers if server["renewable"]]
+
+            if not all_servers:
+                self.log("未检测到任何服务器合同。", LogLevel.SUCCESS)
+            elif not servers_to_renew:
+                # 智能调度：未到续约日期，跳过执行
+                self._log_non_renewable_servers(all_servers)
+                self.log("ℹ️ 未到续约日期，跳过执行。", LogLevel.INFO)
+                return EXIT_SKIPPED
+            else:
+                if not self._process_server_renewals(sess_id, s, servers_to_renew):
+                    status = "失败"
+                    exit_code = EXIT_FAILURE
+
+            self._check_post_renewal_status(sess_id, s)
+            self.log("\n🏁 --- 所有工作完成 ---")
+
+        except (LoginError, RenewalError, PinRetrievalError, CaptchaError) as e:
+            status = "失败"
+            exit_code = EXIT_FAILURE
+            self.log(f"❗ 脚本执行过程中发生致命错误: {e}")
+        finally:
+            self.send_status_email(status)
+        
+        return exit_code
 
 
 def main() -> None:
-    config_ok, missing = validate_config()
-    if not config_ok:
-        log(f"必要的配置未设置: {', '.join(missing)}", LogLevel.ERROR)
-        if LOG_MESSAGES:
-            send_status_email("配置错误", "\n".join(LOG_MESSAGES))
-        exit(1)
-    
-    status = "成功"
-    try:
-        log("--- 开始 Euserv 自动续期任务 ---")
-        sess_id, s = login(EUSERV_USERNAME, EUSERV_PASSWORD)
-        if sess_id == "-1" or s is None:
-            raise LoginError("登录失败")
-            
-        all_servers = get_servers(sess_id, s)
-        servers_to_renew = [server for server in all_servers if server["renewable"]]
-        
-        if not all_servers:
-            log("未检测到任何服务器合同。", LogLevel.SUCCESS)
-        elif not servers_to_renew:
-            _log_non_renewable_servers(all_servers)
-        else:
-            if not _process_renewals(sess_id, s, servers_to_renew):
-                status = "失败"
-        
-        time.sleep(POST_RENEWAL_CHECK_DELAY)
-        check_status_after_renewal(sess_id, s)
-        log("\n🏁 --- 所有工作完成 ---")
-    
-    except (LoginError, RenewalError, PinRetrievalError, CaptchaError) as e:
-        status = "失败"
-        log(f"❗ 脚本执行过程中发生致命错误: {e}")
-        raise
-    finally:
-        send_status_email(status, "\n".join(LOG_MESSAGES))
+    """向后兼容的入口点，使用 RenewalBot 实例。"""
+    bot = RenewalBot()
+    exit_code = bot.run()
+    exit(exit_code)
+
 
 if __name__ == "__main__":
-     main()
+    main()
