@@ -1,3 +1,3 @@
-requests
-beautifulsoup4
-ddddocr
+requests==2.32.5
+beautifulsoup4==4.13.5
+ddddocr==1.5.6

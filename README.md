@@ -56,17 +56,19 @@
 
 这是最关键的步骤。请进入您 Fork 后的仓库，点击 `Settings` -> `Secrets and variables` -> `Actions`，然后点击 `New repository secret` 按钮，逐一添加以下 Secret：
 
-| Secret 名称          | 示例值                          | 描述                                                               |
-| -------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| `EUSERV_USERNAME`    | `your_euserv_username`          | 用于登录 Euserv。                                                  |
-| `EUSERV_PASSWORD`    | `your_euserv_password`          | 用于登录 Euserv。                                                  |
-| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。        |
-| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(可选)** 您在 TrueCaptcha 注册的 `userid`，作为本地 OCR 的备用。 |
-| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(可选)** 您的 TrueCaptcha `apikey`，作为本地 OCR 的备用。        |
-| `EMAIL_HOST`         | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                         |
-| `EMAIL_USERNAME`     | `your_email@gmail.com`          | 您的完整邮箱地址。                                                 |
-| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                         |
-| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                       |
+| Secret 名称          | 示例值                          | 描述                                                                |
+| -------------------- | ------------------------------- | ------------------------------------------------------------------- |
+| `EUSERV_USERNAME`    | `your_euserv_username`          | 用于登录 Euserv。                                                   |
+| `EUSERV_PASSWORD`    | `your_euserv_password`          | 用于登录 Euserv。                                                   |
+| `EUSERV_2FA`         | `ABCD1234EFGH5678`              | **(可选)** 您在 Euserv 后台开启 2FA 时获得的**Setup key**。         |
+| `CAPTCHA_USERID`     | `your_captcha_userid`           | **(可选)** 您在 TrueCaptcha 注册的 `userid`，作为本地 OCR 的备用。  |
+| `CAPTCHA_APIKEY`     | `xxxxxxxxxxxxxxxxxxxx`          | **(可选)** 您的 TrueCaptcha `apikey`，作为本地 OCR 的备用。         |
+| `EMAIL_HOST`         | `imap.gmail.com`                | 您的邮箱 IMAP 服务器地址。                                          |
+| `EMAIL_USERNAME`     | `your_email@gmail.com`          | 您的完整邮箱地址。                                                  |
+| `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | 您的邮箱**应用专用密码**。                                          |
+| `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | 用于接收运行报告的邮箱地址。                                        |
+| `SMTP_HOST`          | `smtp.gmail.com`                | **(可选)** 手动指定 SMTP 服务器。若不提供，将尝试从 IMAP 配置推断。 |
+| `SMTP_PORT`          | `587`                           | **(可选)** 手动指定 SMTP 端口。默认为 587。                         |
 
 **请务必确保 Secret 名称与上表完全一致，并将示例值替换为您自己的真实信息。**
 
@@ -143,6 +145,8 @@ This is the most critical step. Navigate to your forked repository, go to `Setti
 | `EMAIL_USERNAME`     | `your_email@gmail.com`          | Your full email address.                                                           |
 | `EMAIL_PASSWORD`     | `abcd efgh ijkl mnop`           | Your email **App Password**.                                                       |
 | `NOTIFICATION_EMAIL` | `your_notify_email@example.com` | The email address to receive status reports.                                       |
+| `SMTP_HOST`          | `smtp.gmail.com`                | **(Optional)** Manually specify SMTP server. Infers from IMAP if not provided.     |
+| `SMTP_PORT`          | `587`                           | **(Optional)** Manually specify SMTP port. Defaults to 587.                        |
 
 **Ensure the secret names are copied exactly and replace the example values with your own real information.**
 

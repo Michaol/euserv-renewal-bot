@@ -3,9 +3,9 @@
 
 import os
 import re
-import json
 import time
 import base64
+from enum import Enum
 import requests
 from bs4 import BeautifulSoup
 import imaplib
@@ -15,6 +15,8 @@ import smtplib
 from email.mime.text import MIMEText
 import hmac
 import struct
+import ast
+import operator
 
 
 # 自定义异常类
@@ -52,19 +54,61 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/95.0.4638.69 Safari/537.36"
 )
+
+# 时间配置 (秒)
 LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 30
+HTTP_TIMEOUT_SECONDS = 30
+RETRY_DELAY_SECONDS = 5
+API_TIMEOUT_SECONDS = 20
+POST_RENEWAL_CHECK_DELAY = 15
+EMAIL_CHECK_INTERVAL = 30
+EMAIL_MAX_RETRIES = 3
 
-LOG_MESSAGES = []
+# SMTP 配置 (可选环境变量)
+SMTP_HOST = os.getenv('SMTP_HOST') or (EMAIL_HOST.replace("imap", "smtp") if EMAIL_HOST else None)
+_smtp_port_env = os.getenv('SMTP_PORT')
+SMTP_PORT = int(_smtp_port_env) if _smtp_port_env and _smtp_port_env.strip() else 587
+
+LOG_MESSAGES: list[str] = []
 CURRENT_LOGIN_ATTEMPT = 1
 
-def log(info: str):
-    print(info)
-    LOG_MESSAGES.append(info)
 
-def send_status_email(subject_status, log_content):
+class LogLevel(Enum):
+    """日志级别枚举"""
+    INFO = "ℹ️"
+    SUCCESS = "✅"
+    WARNING = "⚠️"
+    ERROR = "❌"
+    PROGRESS = "🔄"
+    CELEBRATION = "🎉"
+
+
+def log(info: str, level: LogLevel = LogLevel.INFO) -> None:
+    """记录日志消息"""
+    formatted = f"{level.value} {info}" if level != LogLevel.INFO else info
+    print(formatted)
+    LOG_MESSAGES.append(formatted)
+
+
+def validate_config() -> tuple[bool, list[str]]:
+    """验证必需配置，返回 (是否通过, 缺失项列表)"""
+    required = {
+        "EUSERV_USERNAME": EUSERV_USERNAME,
+        "EUSERV_PASSWORD": EUSERV_PASSWORD,
+        "EMAIL_HOST": EMAIL_HOST,
+        "EMAIL_USERNAME": EMAIL_USERNAME,
+        "EMAIL_PASSWORD": EMAIL_PASSWORD,
+    }
+    missing = [k for k, v in required.items() if not v]
+    return len(missing) == 0, missing
+
+def send_status_email(subject_status: str, log_content: str) -> None:
     if not (NOTIFICATION_EMAIL and EMAIL_USERNAME and EMAIL_PASSWORD):
         log("邮件通知所需的一个或多个Secrets未设置，跳过发送邮件。")
+        return
+    if not SMTP_HOST:
+        log("无法推断 SMTP 服务器地址，跳过发送邮件。")
         return
     log("正在准备发送状态通知邮件...")
     sender = EMAIL_USERNAME
@@ -76,15 +120,14 @@ def send_status_email(subject_status, log_content):
     msg['From'] = sender
     msg['To'] = recipient
     try:
-        smtp_host = EMAIL_HOST.replace("imap", "smtp")
-        server = smtplib.SMTP(smtp_host, 587)
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
         server.starttls()
         server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
         server.sendmail(sender, [recipient], msg.as_string())
         server.quit()
-        log("🎉 状态通知邮件已成功发送！")
+        log("状态通知邮件已成功发送！", LogLevel.CELEBRATION)
     except Exception as e:
-        log(f"❌ 发送邮件失败: {e}")
+        log(f"发送邮件失败: {e}", LogLevel.ERROR)
 
 def login_retry(max_retry):
     def decorator(func):
@@ -94,7 +137,7 @@ def login_retry(max_retry):
                 CURRENT_LOGIN_ATTEMPT = i + 1
                 if i > 0:
                     log(f"登录尝试第 {i + 1}/{max_retry} 次...")
-                    time.sleep(5)
+                    time.sleep(RETRY_DELAY_SECONDS)
                 sess_id, session = func(*args, **kwargs)
                 if sess_id != "-1":
                     return sess_id, session
@@ -114,6 +157,26 @@ def hotp(key, counter, digits=6, digest='sha1'):
 def totp(key, time_step=30, digits=6, digest='sha1'):
     return hotp(key, int(time.time() / time_step), digits, digest)
 
+
+def safe_eval_math(expr: str) -> int | None:
+    """安全计算简单数学表达式 (仅支持 +, -, *, /)"""
+    ops = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.floordiv
+    }
+    def _eval(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in ops:
+            return ops[type(node.op)](_eval(node.left), _eval(node.right))
+        raise ValueError("Unsupported expression")
+    try:
+        return int(_eval(ast.parse(expr, mode='eval').body))
+    except (SyntaxError, ValueError, TypeError, ZeroDivisionError):
+        return None
+
 def _solve_captcha_local(image_bytes):
     """使用本地 ddddocr 识别验证码"""
     import ddddocr
@@ -129,11 +192,10 @@ def _solve_captcha_local(image_bytes):
     cleaned = ''.join(c for c in math_text if c in '0123456789+-*/')
     
     if cleaned and any(op in cleaned for op in ['+', '-', '*', '/']):
-        try:
-            return str(eval(cleaned))
-        except:
-            pass
-    
+        result = safe_eval_math(cleaned)
+        if result is not None:
+            return str(result)
+
     return captcha_text
 
 
@@ -151,7 +213,7 @@ def _solve_captcha_api(image_bytes):
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            api_response = requests.post(url=url, json=data, timeout=20)
+            api_response = requests.post(url=url, json=data, timeout=API_TIMEOUT_SECONDS)
             api_response.raise_for_status()
             result_data = api_response.json()
             
@@ -162,15 +224,16 @@ def _solve_captcha_api(image_bytes):
             captcha_text = result_data.get('result')
             if captcha_text:
                 # 尝试数学计算
-                try:
-                    return str(eval(captcha_text.replace('x', '*').replace('X', '*')))
-                except:
-                    return captcha_text
+                math_expr = captcha_text.replace('x', '*').replace('X', '*')
+                result = safe_eval_math(math_expr)
+                if result is not None:
+                    return str(result)
+                return captcha_text
                     
         except requests.RequestException as e:
             log(f"API请求失败 (尝试 {attempt+1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
-                time.sleep(5)
+                time.sleep(RETRY_DELAY_SECONDS)
     
     return None
 
@@ -214,7 +277,7 @@ def solve_captcha(image_bytes):
 def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username, password):
     """处理图片验证码，返回更新后的响应"""
     log("检测到图片验证码，正在处理...")
-    image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT})
+    image_res = session.get(captcha_image_url, headers={'user-agent': USER_AGENT}, timeout=HTTP_TIMEOUT_SECONDS)
     image_res.raise_for_status()
     image_bytes = image_res.content
     
@@ -228,7 +291,7 @@ def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username,
         "sess_id": sess_id, 
         "captcha_code": str(captcha_code)
     }
-    response = session.post(url, headers=headers, data=post_data)
+    response = session.post(url, headers=headers, data=post_data, timeout=HTTP_TIMEOUT_SECONDS)
     
     if "To finish the login process please solve the following captcha." in response.text:
         log("图片验证码验证失败")
@@ -259,7 +322,7 @@ def _handle_2fa(session, url, headers, response_text):
     two_fa_data = {inp["name"]: inp.get("value", "") for inp in hidden_inputs}
     two_fa_data["pin"] = two_fa_code
     
-    response = session.post(url, headers=headers, data=two_fa_data)
+    response = session.post(url, headers=headers, data=two_fa_data, timeout=HTTP_TIMEOUT_SECONDS)
     if "To finish the login process enter the PIN that is shown in yout authenticator app." in response.text:
         log("2FA验证失败")
         return None
@@ -279,19 +342,19 @@ def login(username, password):
     captcha_image_url = "https://support.euserv.com/securimage_show.php"
     session = requests.Session()
 
-    sess_res = session.get(url, headers=headers)
+    sess_res = session.get(url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
     sess_res.raise_for_status()
     sess_id = sess_res.cookies.get('PHPSESSID')
     if not sess_id:
         raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
     
-    session.get("https://support.euserv.com/pic/logo_small.png", headers=headers)
+    session.get("https://support.euserv.com/pic/logo_small.png", headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
 
     login_data = {
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
     }
-    f = session.post(url, headers=headers, data=login_data)
+    f = session.post(url, headers=headers, data=login_data, timeout=HTTP_TIMEOUT_SECONDS)
     f.raise_for_status()
 
     if _is_login_success(f.text):
@@ -350,7 +413,7 @@ def get_pin_from_gmail(host, username, password):
     today_str = date.today().strftime('%d-%b-%Y')
     search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
     
-    for i in range(3):
+    for i in range(EMAIL_MAX_RETRIES):
         try:
             with imaplib.IMAP4_SSL(host) as mail:
                 mail.login(username, password)
@@ -360,7 +423,7 @@ def get_pin_from_gmail(host, username, password):
                     log(f"成功从Gmail获取PIN码: {pin}")
                     return pin
             log(f"第{i+1}次尝试：未找到PIN邮件，等待30秒...")
-            time.sleep(30)
+            time.sleep(EMAIL_CHECK_INTERVAL)
         except (imaplib.IMAP4.error, OSError) as e:
             log(f"获取PIN码时发生错误: {e}")
             raise PinRetrievalError(f"邮件连接错误: {e}") from e
@@ -371,7 +434,7 @@ def get_servers(sess_id, session):
     server_list = []
     url = f"https://support.euserv.com/index.iphp?sess_id={sess_id}"
     headers = {"user-agent": USER_AGENT}
-    f = session.get(url=url, headers=headers)
+    f = session.get(url=url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
     f.raise_for_status()
     soup = BeautifulSoup(f.text, "html.parser")
     selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
@@ -398,12 +461,12 @@ def renew(sess_id, session, order_id):
         "Submit": "Extend contract", "sess_id": sess_id, "ord_no": order_id,
         "subaction": "choose_order", "choose_order_subaction": "show_contract_details",
     }
-    session.post(url, headers=headers, data=data1)
+    session.post(url, headers=headers, data=data1, timeout=HTTP_TIMEOUT_SECONDS)
     data2 = {
         "sess_id": sess_id, "subaction": "show_kc2_security_password_dialog",
         "prefix": "kc2_customer_contract_details_extend_contract_", "type": "1",
     }
-    session.post(url, headers=headers, data=data2)
+    session.post(url, headers=headers, data=data2, timeout=HTTP_TIMEOUT_SECONDS)
     time.sleep(WAITING_TIME_OF_PIN)
     pin = get_pin_from_gmail(EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD)
     data3 = {
@@ -411,7 +474,7 @@ def renew(sess_id, session, order_id):
         "prefix": "kc2_customer_contract_details_extend_contract_", "type": 1,
         "ident": f"kc2_customer_contract_details_extend_contract_{order_id}",
     }
-    f = session.post(url, headers=headers, data=data3)
+    f = session.post(url, headers=headers, data=data3, timeout=HTTP_TIMEOUT_SECONDS)
     f.raise_for_status()
     response_json = f.json()
     if response_json.get("rs") != "success":
@@ -422,7 +485,7 @@ def renew(sess_id, session, order_id):
         "sess_id": sess_id, "ord_id": order_id,
         "subaction": "kc2_customer_contract_details_extend_contract_term", "token": token,
     }
-    final_res = session.post(url, headers=headers, data=data4)
+    final_res = session.post(url, headers=headers, data=data4, timeout=HTTP_TIMEOUT_SECONDS)
     final_res.raise_for_status()
     return True
 
@@ -431,21 +494,16 @@ def check_status_after_renewal(sess_id, session):
     server_list = get_servers(sess_id, session)
     servers_still_to_renew = [s["id"] for s in server_list if s["renewable"]]
     if not servers_still_to_renew:
-        log("🎉 所有服务器均已成功续订或无需续订！")
+        log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
     else:
         for server_id in servers_still_to_renew:
-            log(f"⚠️ 警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。")
+            log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
 
-def _check_required_secrets():
-    """检查必要的Secrets是否已配置"""
-    required = [EUSERV_USERNAME, EUSERV_PASSWORD, CAPTCHA_USERID, 
-                CAPTCHA_APIKEY, EMAIL_HOST, EMAIL_USERNAME, EMAIL_PASSWORD]
-    return all(required)
 
 
 def _log_non_renewable_servers(all_servers):
     """记录无需续期的服务器信息"""
-    log("✅ 检测到所有服务器均无需续期。详情如下：")
+    log("检测到所有服务器均无需续期。详情如下：", LogLevel.SUCCESS)
     for server in all_servers:
         if not server["renewable"]:
             log(f"   - 服务器 {server['id']}: 可续约日期为 {server['date']}")
@@ -459,16 +517,17 @@ def _process_renewals(sess_id, session, servers_to_renew):
         log(f"\n🔄 --- 正在为服务器 {server['id']} 执行续期 ---")
         try:
             renew(sess_id, session, server['id'])
-            log(f"✔️ 服务器 {server['id']} 的续期流程已成功提交。")
+            log(f"服务器 {server['id']} 的续期流程已成功提交。", LogLevel.SUCCESS)
         except (RenewalError, requests.RequestException) as e:
-            log(f"❌ 为服务器 {server['id']} 续期时发生严重错误: {e}")
+            log(f"为服务器 {server['id']} 续期时发生严重错误: {e}", LogLevel.ERROR)
             all_success = False
     return all_success
 
 
-def main():
-    if not _check_required_secrets():
-        log("一个或多个必要的Secrets未设置，请检查GitHub仓库配置。")
+def main() -> None:
+    config_ok, missing = validate_config()
+    if not config_ok:
+        log(f"必要的配置未设置: {', '.join(missing)}", LogLevel.ERROR)
         if LOG_MESSAGES:
             send_status_email("配置错误", "\n".join(LOG_MESSAGES))
         exit(1)
@@ -484,14 +543,14 @@ def main():
         servers_to_renew = [server for server in all_servers if server["renewable"]]
         
         if not all_servers:
-            log("✅ 未检测到任何服务器合同。")
+            log("未检测到任何服务器合同。", LogLevel.SUCCESS)
         elif not servers_to_renew:
             _log_non_renewable_servers(all_servers)
         else:
             if not _process_renewals(sess_id, s, servers_to_renew):
                 status = "失败"
         
-        time.sleep(15)
+        time.sleep(POST_RENEWAL_CHECK_DELAY)
         check_status_after_renewal(sess_id, s)
         log("\n🏁 --- 所有工作完成 ---")
     
