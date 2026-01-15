@@ -58,8 +58,10 @@ jobs:
             echo "🔄 尝试 $i/$MAX_RETRIES - $(date)"
             echo "========================================="
             
+            set +e  # 允许非零退出码
             python Euserv_Renewal.py
             EXIT_CODE=$?
+            set -e
             
             # 退出码处理
             case $EXIT_CODE in
@@ -68,7 +70,8 @@ jobs:
                 exit 0
                 ;;
               2)
-                echo "⏭️ 未到续约日期，跳过执行"
+                echo "⏭️ 未到续约日期，跳过执行 (动态调度将更新 cron)"
+                # 正常退出，让后续步骤执行动态调度更新
                 exit 0
                 ;;
               *)
