@@ -1,30 +1,24 @@
 name: Euserv VPS Renewal
-
 on:
   schedule:
-    # 动态调度: 此 cron 会被脚本自动更新为下次续约日期
-    - cron: "0 0 * * *"
-  workflow_dispatch:
-
+    - cron: 0 0 22 1 *
+  workflow_dispatch: null
 jobs:
   renew-vps:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Cache Virtual Environment
         id: cache-venv
         uses: actions/cache@v4
         with:
           path: venv
           key: ${{ runner.os }}-venv-${{ hashFiles('requirements.txt') }}
-
       - name: Create venv and Install dependencies
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
@@ -32,7 +26,6 @@ jobs:
           source venv/bin/activate
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Run renewal script with retry
         id: renewal
         env:
@@ -49,10 +42,10 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
         run: |
           source venv/bin/activate
-          
+
           MAX_RETRIES=3
           RETRY_DELAY=1800  # 30分钟 (秒)
-          
+
           for i in $(seq 1 $MAX_RETRIES); do
             echo "========================================="
             echo "🔄 尝试 $i/$MAX_RETRIES - $(date)"
@@ -83,10 +76,9 @@ jobs:
                 ;;
             esac
           done
-          
+
           echo "💥 所有 $MAX_RETRIES 次重试均失败"
           exit 1
-
       - name: Update schedule for next renewal
         if: steps.renewal.outputs.next_cron != ''
         uses: gr2m/set-cron-schedule-action@v2
@@ -95,7 +87,6 @@ jobs:
           cron: ${{ steps.renewal.outputs.next_cron }}
           workflow: renewal.yml
           message: "ci(renewal): 更新下次续约时间为 ${{ steps.renewal.outputs.next_date }}"
-
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v4
@@ -104,4 +95,3 @@ jobs:
           path: captcha_failed.png
           if-no-files-found: ignore
           retention-days: 7
-
