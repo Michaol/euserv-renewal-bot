@@ -211,6 +211,15 @@ class RenewalBot:
             self._ocr = ddddocr.DdddOcr(show_ad=False)
         return self._ocr
     
+    def prewarm_ocr(self) -> None:
+        """预加载 OCR 模型，减少首次识别延迟"""
+        self.log("正在预加载 OCR 模型...", LogLevel.PROGRESS)
+        try:
+            self._get_ocr()
+            self.log("OCR 模型预加载完成", LogLevel.SUCCESS)
+        except Exception as e:
+            self.log(f"OCR 预加载失败 (将在需要时重试): {e}", LogLevel.WARNING)
+    
     def _solve_captcha_local(self, image_bytes: bytes) -> str | None:
         """使用本地 ddddocr 识别验证码"""
         ocr = self._get_ocr()
@@ -646,6 +655,10 @@ class RenewalBot:
         exit_code = EXIT_SUCCESS
         try:
             self.log("--- 开始 Euserv 自动续期任务 ---")
+            
+            # 预加载 OCR 模型，减少首次验证码识别延迟
+            self.prewarm_ocr()
+            
             self._perform_login()
 
             all_servers = self._get_servers()
