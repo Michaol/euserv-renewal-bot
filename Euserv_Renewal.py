@@ -643,6 +643,14 @@ class RenewalBot:
         """检查续期后的服务器状态，并显示下次续约日期。"""
         time.sleep(POST_RENEWAL_CHECK_DELAY)
         server_list = get_servers(sess_id, session)
+        
+        # 如果没有读取到日期，再等 30 秒重试一次（Euserv 可能需要时间更新状态）
+        has_valid_date = any(s['date'] and s['date'] != "未知日期" for s in server_list)
+        if not has_valid_date:
+            self.log("首次读取未获取到续约日期，等待 30 秒后重试...")
+            time.sleep(30)
+            server_list = get_servers(sess_id, session)
+        
         servers_still_to_renew = [sv["id"] for sv in server_list if sv["renewable"]]
         
         if not servers_still_to_renew:
