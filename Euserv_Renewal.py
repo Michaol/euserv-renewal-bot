@@ -640,12 +640,26 @@ class RenewalBot:
         return all_success
 
     def _check_post_renewal_status(self, sess_id: str, session: requests.Session) -> None:
-        """检查续期后的服务器状态。"""
+        """检查续期后的服务器状态，并显示下次续约日期。"""
         time.sleep(POST_RENEWAL_CHECK_DELAY)
         server_list = get_servers(sess_id, session)
         servers_still_to_renew = [sv["id"] for sv in server_list if sv["renewable"]]
+        
         if not servers_still_to_renew:
             self.log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
+            # 显示每台服务器的下次续约日期
+            earliest_date = None
+            for server in server_list:
+                if server['date'] and server['date'] != "未知日期":
+                    self.log(f"   - 服务器 {server['id']}: 下次可续约日期 {server['date']}")
+                    if earliest_date is None or server['date'] < earliest_date:
+                        earliest_date = server['date']
+            
+            # 输出最早的续约日期
+            if earliest_date:
+                self.log(f"📅 下次续约窗口开启时间: {earliest_date}", LogLevel.INFO)
+                if GITHUB_OUTPUT:
+                    self._output_next_schedule(earliest_date)
         else:
             for server_id in servers_still_to_renew:
                 self.log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
