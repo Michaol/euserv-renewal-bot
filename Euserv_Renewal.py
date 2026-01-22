@@ -78,6 +78,12 @@ SMTP_PORT = int(_smtp_port_env) if _smtp_port_env and _smtp_port_env.strip() els
 # GitHub Actions 输出文件
 GITHUB_OUTPUT = os.getenv('GITHUB_OUTPUT')
 
+# 登录检测字符串常量
+CAPTCHA_PROMPT = "To finish the login process please solve the following captcha."
+TWO_FA_PROMPT = "To finish the login process enter the PIN that is shown in yout authenticator app."
+LOGIN_SUCCESS_INDICATORS = ("Hello", "Confirm or change your customer data here")
+RENEWAL_DATE_PATTERN = r"Contract extension possible from"
+
 LOG_MESSAGES: list[str] = []
 CURRENT_LOGIN_ATTEMPT = 1
 
@@ -313,21 +319,21 @@ def _handle_captcha(session, url, captcha_image_url, headers, sess_id, username,
     }
     response = session.post(url, headers=headers, data=post_data, timeout=HTTP_TIMEOUT_SECONDS)
     
-    if "To finish the login process please solve the following captcha." in response.text:
+    if CAPTCHA_PROMPT in response.text:
         log("图片验证码验证失败")
         # 验证失败时保存验证码图片用于调试
         try:
             with open('captcha_failed.png', 'wb') as f:
                 f.write(image_bytes)
             log(f"失败的验证码图片已保存到 captcha_failed.png，识别结果为: {captcha_code}")
-        except Exception as e:
+        except OSError as e:
             log(f"保存验证码图片失败: {e}")
         return None
     log("图片验证码验证通过")
     return response
 
 
-def _handle_2fa(session, url, headers, response_text):
+def _handle_2fa(session: requests.Session, url: str, headers: dict, response_text: str) -> requests.Response | None:
     """处理2FA验证，返回更新后的响应"""
     log("检测到需要2FA验证")
     if not EUSERV_2FA:
@@ -343,16 +349,16 @@ def _handle_2fa(session, url, headers, response_text):
     two_fa_data["pin"] = two_fa_code
     
     response = session.post(url, headers=headers, data=two_fa_data, timeout=HTTP_TIMEOUT_SECONDS)
-    if "To finish the login process enter the PIN that is shown in yout authenticator app." in response.text:
+    if TWO_FA_PROMPT in response.text:
         log("2FA验证失败")
         return None
     log("2FA验证通过")
     return response
 
 
-def _is_login_success(response_text):
+def _is_login_success(response_text: str) -> bool:
     """检查是否登录成功"""
-    return "Hello" in response_text or "Confirm or change your customer data here" in response_text
+    return any(indicator in response_text for indicator in LOGIN_SUCCESS_INDICATORS)
 
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
@@ -382,13 +388,13 @@ def login(username, password):
         return sess_id, session
 
     # 处理验证码
-    if "To finish the login process please solve the following captcha." in f.text:
+    if CAPTCHA_PROMPT in f.text:
         f = _handle_captcha(session, url, captcha_image_url, headers, sess_id, username, password)
         if f is None:
             return "-1", session
 
     # 处理2FA
-    if "To finish the login process enter the PIN that is shown in yout authenticator app." in f.text:
+    if TWO_FA_PROMPT in f.text:
         f = _handle_2fa(session, url, headers, f.text)
         if f is None:
             return "-1", session
@@ -449,9 +455,10 @@ def get_pin_from_gmail(host, username, password):
             raise PinRetrievalError(f"邮件连接错误: {e}") from e
     raise PinRetrievalError("多次尝试后仍无法获取PIN码邮件。")
 
-def get_servers(sess_id, session):
+def get_servers(sess_id: str, session: requests.Session) -> list[dict]:
+    """获取服务器列表及其续约状态"""
     log("正在访问服务器列表页面...")
-    server_list = []
+    server_list: list[dict] = []
     url = f"https://support.euserv.com/index.iphp?sess_id={sess_id}"
     headers = {"user-agent": USER_AGENT}
     f = session.get(url=url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
@@ -465,7 +472,7 @@ def get_servers(sess_id, session):
         action_container = tr.select_one(".td-z1-sp2-kc .kc2_order_action_container")
         if action_container:
             action_text = action_container.get_text()
-            if "Contract extension possible from" in action_text:
+            if RENEWAL_DATE_PATTERN in action_text:
                 renewal_date_match = re.search(r'\d{4}-\d{2}-\d{2}', action_text)
                 renewal_date = renewal_date_match.group(0) if renewal_date_match else "未知日期"
                 server_list.append({"id": server_id, "renewable": False, "date": renewal_date})
@@ -473,7 +480,8 @@ def get_servers(sess_id, session):
                 server_list.append({"id": server_id, "renewable": True, "date": None})
     return server_list
 
-def renew(sess_id, session, order_id):
+def renew(sess_id: str, session: requests.Session, order_id: str) -> bool:
+    """执行服务器续约流程"""
     log(f"正在为服务器 {order_id} 触发续订流程...")
     url = "https://support.euserv.com/index.iphp"
     headers = {"user-agent": USER_AGENT, "Host": "support.euserv.com", "origin": "https://support.euserv.com"}
