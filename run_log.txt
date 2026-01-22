@@ -1,0 +1,250 @@
+renew-vps	Set up job	锘?026-01-22T04:40:00.4872539Z Current runner version: '2.331.0'
+renew-vps	Set up job	2026-01-22T04:40:00.4896715Z ##[group]Runner Image Provisioner
+renew-vps	Set up job	2026-01-22T04:40:00.4897557Z Hosted Compute Agent
+renew-vps	Set up job	2026-01-22T04:40:00.4898108Z Version: 20251211.462
+renew-vps	Set up job	2026-01-22T04:40:00.4898743Z Commit: 6cbad8c2bb55d58165063d031ccabf57e2d2db61
+renew-vps	Set up job	2026-01-22T04:40:00.4899420Z Build Date: 2025-12-11T16:28:49Z
+renew-vps	Set up job	2026-01-22T04:40:00.4900076Z Worker ID: {5ecd0be6-9966-4dbb-bd75-962b56b77e98}
+renew-vps	Set up job	2026-01-22T04:40:00.4900768Z ##[endgroup]
+renew-vps	Set up job	2026-01-22T04:40:00.4901296Z ##[group]Operating System
+renew-vps	Set up job	2026-01-22T04:40:00.4901983Z Ubuntu
+renew-vps	Set up job	2026-01-22T04:40:00.4902474Z 24.04.3
+renew-vps	Set up job	2026-01-22T04:40:00.4902969Z LTS
+renew-vps	Set up job	2026-01-22T04:40:00.4903461Z ##[endgroup]
+renew-vps	Set up job	2026-01-22T04:40:00.4903979Z ##[group]Runner Image
+renew-vps	Set up job	2026-01-22T04:40:00.4904529Z Image: ubuntu-24.04
+renew-vps	Set up job	2026-01-22T04:40:00.4905069Z Version: 20260111.209.1
+renew-vps	Set up job	2026-01-22T04:40:00.4906056Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260111.209/images/ubuntu/Ubuntu2404-Readme.md
+renew-vps	Set up job	2026-01-22T04:40:00.4907395Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260111.209
+renew-vps	Set up job	2026-01-22T04:40:00.4908494Z ##[endgroup]
+renew-vps	Set up job	2026-01-22T04:40:00.4909582Z ##[group]GITHUB_TOKEN Permissions
+renew-vps	Set up job	2026-01-22T04:40:00.4911495Z Contents: read
+renew-vps	Set up job	2026-01-22T04:40:00.4912292Z Metadata: read
+renew-vps	Set up job	2026-01-22T04:40:00.4912824Z Packages: read
+renew-vps	Set up job	2026-01-22T04:40:00.4913332Z ##[endgroup]
+renew-vps	Set up job	2026-01-22T04:40:00.4915533Z Secret source: Actions
+renew-vps	Set up job	2026-01-22T04:40:00.4916239Z Prepare workflow directory
+renew-vps	Set up job	2026-01-22T04:40:00.5234753Z Prepare all required actions
+renew-vps	Set up job	2026-01-22T04:40:00.5273909Z Getting action download info
+renew-vps	Set up job	2026-01-22T04:40:01.0246068Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+renew-vps	Set up job	2026-01-22T04:40:01.0955786Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+renew-vps	Set up job	2026-01-22T04:40:01.1633362Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+renew-vps	Set up job	2026-01-22T04:40:01.2478687Z Download action repository 'gr2m/set-cron-schedule-action@v2' (SHA:dff88f5525ac7d16800a1715be81d28ca3b57870)
+renew-vps	Set up job	2026-01-22T04:40:02.0177065Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+renew-vps	Set up job	2026-01-22T04:40:02.2139234Z Complete job name: renew-vps
+renew-vps	Checkout repository	锘?026-01-22T04:40:02.2918135Z ##[group]Run actions/checkout@v4
+renew-vps	Checkout repository	2026-01-22T04:40:02.2919182Z with:
+renew-vps	Checkout repository	2026-01-22T04:40:02.2919760Z   repository: Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.2920706Z   token: ***
+renew-vps	Checkout repository	2026-01-22T04:40:02.2921237Z   ssh-strict: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2921906Z   ssh-user: git
+renew-vps	Checkout repository	2026-01-22T04:40:02.2922463Z   persist-credentials: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2923067Z   clean: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2923627Z   sparse-checkout-cone-mode: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2924264Z   fetch-depth: 1
+renew-vps	Checkout repository	2026-01-22T04:40:02.2924809Z   fetch-tags: false
+renew-vps	Checkout repository	2026-01-22T04:40:02.2925365Z   show-progress: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2925927Z   lfs: false
+renew-vps	Checkout repository	2026-01-22T04:40:02.2926462Z   submodules: false
+renew-vps	Checkout repository	2026-01-22T04:40:02.2927035Z   set-safe-directory: true
+renew-vps	Checkout repository	2026-01-22T04:40:02.2928219Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.4009710Z Syncing repository: Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.4012378Z ##[group]Getting Git version info
+renew-vps	Checkout repository	2026-01-22T04:40:02.4013554Z Working directory is '/home/runner/work/euserv-renewal-bot/euserv-renewal-bot'
+renew-vps	Checkout repository	2026-01-22T04:40:02.4014989Z [command]/usr/bin/git version
+renew-vps	Checkout repository	2026-01-22T04:40:02.4066013Z git version 2.52.0
+renew-vps	Checkout repository	2026-01-22T04:40:02.4099056Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.4117327Z Temporarily overriding HOME='/home/runner/work/_temp/eeb952e7-20be-4902-9017-728a80e4ddc5' before making global git config changes
+renew-vps	Checkout repository	2026-01-22T04:40:02.4118888Z Adding repository directory to the temporary git global config as a safe directory
+renew-vps	Checkout repository	2026-01-22T04:40:02.4122796Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.4164898Z Deleting the contents of '/home/runner/work/euserv-renewal-bot/euserv-renewal-bot'
+renew-vps	Checkout repository	2026-01-22T04:40:02.4167724Z ##[group]Initializing the repository
+renew-vps	Checkout repository	2026-01-22T04:40:02.4171842Z [command]/usr/bin/git init /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.4266947Z hint: Using 'master' as the name for the initial branch. This default branch name
+renew-vps	Checkout repository	2026-01-22T04:40:02.4269042Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+renew-vps	Checkout repository	2026-01-22T04:40:02.4270675Z hint: to use in all of your new repositories, which will suppress this warning,
+renew-vps	Checkout repository	2026-01-22T04:40:02.4271554Z hint: call:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4272239Z hint:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4273168Z hint: 	git config --global init.defaultBranch <name>
+renew-vps	Checkout repository	2026-01-22T04:40:02.4274090Z hint:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4274944Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+renew-vps	Checkout repository	2026-01-22T04:40:02.4275993Z hint: 'development'. The just-created branch can be renamed via this command:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4276845Z hint:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4277364Z hint: 	git branch -m <name>
+renew-vps	Checkout repository	2026-01-22T04:40:02.4277935Z hint:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4278661Z hint: Disable this message with "git config set advice.defaultBranchName false"
+renew-vps	Checkout repository	2026-01-22T04:40:02.4280034Z Initialized empty Git repository in /home/runner/work/euserv-renewal-bot/euserv-renewal-bot/.git/
+renew-vps	Checkout repository	2026-01-22T04:40:02.4282601Z [command]/usr/bin/git remote add origin https://github.com/Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.4310016Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.4311025Z ##[group]Disabling automatic garbage collection
+renew-vps	Checkout repository	2026-01-22T04:40:02.4313719Z [command]/usr/bin/git config --local gc.auto 0
+renew-vps	Checkout repository	2026-01-22T04:40:02.4337009Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.4337970Z ##[group]Setting up auth
+renew-vps	Checkout repository	2026-01-22T04:40:02.4343018Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+renew-vps	Checkout repository	2026-01-22T04:40:02.4366949Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+renew-vps	Checkout repository	2026-01-22T04:40:02.4643827Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+renew-vps	Checkout repository	2026-01-22T04:40:02.4669357Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+renew-vps	Checkout repository	2026-01-22T04:40:02.4838731Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+renew-vps	Checkout repository	2026-01-22T04:40:02.4864266Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+renew-vps	Checkout repository	2026-01-22T04:40:02.5048565Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+renew-vps	Checkout repository	2026-01-22T04:40:02.5076823Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.5077845Z ##[group]Fetching the repository
+renew-vps	Checkout repository	2026-01-22T04:40:02.5084562Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +abd2c30d108888743f3bb03b71aeb66e548580b5:refs/remotes/origin/main
+renew-vps	Checkout repository	2026-01-22T04:40:02.9051050Z From https://github.com/Michaol/euserv-renewal-bot
+renew-vps	Checkout repository	2026-01-22T04:40:02.9053406Z  * [new ref]         abd2c30d108888743f3bb03b71aeb66e548580b5 -> origin/main
+renew-vps	Checkout repository	2026-01-22T04:40:02.9077339Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.9079011Z ##[group]Determining the checkout info
+renew-vps	Checkout repository	2026-01-22T04:40:02.9080842Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.9085399Z [command]/usr/bin/git sparse-checkout disable
+renew-vps	Checkout repository	2026-01-22T04:40:02.9118490Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+renew-vps	Checkout repository	2026-01-22T04:40:02.9139363Z ##[group]Checking out the ref
+renew-vps	Checkout repository	2026-01-22T04:40:02.9143087Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+renew-vps	Checkout repository	2026-01-22T04:40:02.9185183Z Switched to a new branch 'main'
+renew-vps	Checkout repository	2026-01-22T04:40:02.9186483Z branch 'main' set up to track 'origin/main'.
+renew-vps	Checkout repository	2026-01-22T04:40:02.9191831Z ##[endgroup]
+renew-vps	Checkout repository	2026-01-22T04:40:02.9218470Z [command]/usr/bin/git log -1 --format=%H
+renew-vps	Checkout repository	2026-01-22T04:40:02.9235119Z abd2c30d108888743f3bb03b71aeb66e548580b5
+renew-vps	Set up Python	锘?026-01-22T04:40:02.9473350Z ##[group]Run actions/setup-python@v5
+renew-vps	Set up Python	2026-01-22T04:40:02.9474249Z with:
+renew-vps	Set up Python	2026-01-22T04:40:02.9474767Z   python-version: 3.12
+renew-vps	Set up Python	2026-01-22T04:40:02.9475336Z   check-latest: false
+renew-vps	Set up Python	2026-01-22T04:40:02.9476079Z   token: ***
+renew-vps	Set up Python	2026-01-22T04:40:02.9476625Z   update-environment: true
+renew-vps	Set up Python	2026-01-22T04:40:02.9477230Z   allow-prereleases: false
+renew-vps	Set up Python	2026-01-22T04:40:02.9477826Z   freethreaded: false
+renew-vps	Set up Python	2026-01-22T04:40:02.9478369Z ##[endgroup]
+renew-vps	Set up Python	2026-01-22T04:40:03.1049086Z ##[group]Installed versions
+renew-vps	Set up Python	2026-01-22T04:40:03.1147333Z Successfully set up CPython (3.12.12)
+renew-vps	Set up Python	2026-01-22T04:40:03.1195623Z ##[endgroup]
+renew-vps	Cache Virtual Environment	锘?026-01-22T04:40:03.1786010Z ##[group]Run actions/cache@v4
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1786596Z with:
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1787028Z   path: venv
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1787731Z   key: Linux-venv-4dfcf292a4b2e83a40970c5d42a3b2527eaa03fda3d928a26a7d7401e12086eb
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1788561Z   enableCrossOsArchive: false
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1789100Z   fail-on-cache-miss: false
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1789609Z   lookup-only: false
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1790082Z   save-always: false
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1790537Z env:
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1791050Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1792264Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1793077Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1793807Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1794537Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1795276Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.1795958Z ##[endgroup]
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:03.5557929Z Cache hit for: Linux-venv-4dfcf292a4b2e83a40970c5d42a3b2527eaa03fda3d928a26a7d7401e12086eb
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:04.7923284Z Received 37748736 of 193223991 (19.5%), 36.0 MBs/sec
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:05.7920905Z Received 167772160 of 193223991 (86.8%), 80.0 MBs/sec
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:05.9547179Z Received 193223991 of 193223991 (100.0%), 85.2 MBs/sec
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:05.9553295Z Cache Size: ~184 MB (193223991 B)
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:05.9671028Z [command]/usr/bin/tar -xf /home/runner/work/_temp/7099b4c0-eb93-4fe9-be1f-619a3d058944/cache.tzst -P -C /home/runner/work/euserv-renewal-bot/euserv-renewal-bot --use-compress-program unzstd
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:06.6360524Z Cache restored successfully
+renew-vps	Cache Virtual Environment	2026-01-22T04:40:06.6650186Z Cache restored from key: Linux-venv-4dfcf292a4b2e83a40970c5d42a3b2527eaa03fda3d928a26a7d7401e12086eb
+renew-vps	Run renewal script with retry	锘?026-01-22T04:40:06.6775593Z ##[group]Run source venv/bin/activate
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6776110Z [36;1msource venv/bin/activate[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6776423Z [36;1m[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6776680Z [36;1mMAX_RETRIES=3[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6776968Z [36;1mRETRY_DELAY=1800  # 30鍒嗛挓 (绉?[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6777271Z [36;1m[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6777497Z [36;1mfor i in $(seq 1 $MAX_RETRIES); do[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6777863Z [36;1m  echo "========================================="[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6778233Z [36;1m  echo "馃攧 灏濊瘯 $i/$MAX_RETRIES - $(date)"[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6778604Z [36;1m  echo "========================================="[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6778890Z [36;1m  [0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6779108Z [36;1m  set +e  # 鍏佽闈為浂閫€鍑虹爜[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6779375Z [36;1m  python Euserv_Renewal.py[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6779644Z [36;1m  EXIT_CODE=$?[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6779865Z [36;1m  set -e[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6780069Z [36;1m  [0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6780291Z [36;1m  # 閫€鍑虹爜澶勭悊[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6780567Z [36;1m  case $EXIT_CODE in[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6780805Z [36;1m    0)[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6781026Z [36;1m      echo "鉁?缁害鎴愬姛鎴栨棤闇€缁害"[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6781282Z [36;1m      exit 0[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6781510Z [36;1m      ;;[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6781977Z [36;1m    2)[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6782254Z [36;1m      echo "鈴笍 鏈埌缁害鏃ユ湡锛岃烦杩囨墽琛?(鍔ㄦ€佽皟搴﹀皢鏇存柊 cron)"[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6782550Z [36;1m      # 姝ｅ父閫€鍑猴紝璁╁悗缁楠ゆ墽琛屽姩鎬佽皟搴︽洿鏂?[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6782799Z [36;1m      exit 0[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6783013Z [36;1m      ;;[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6783438Z [36;1m    *)[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6783668Z [36;1m      echo "鉂?缁害澶辫触 (閫€鍑虹爜: $EXIT_CODE)"[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6783968Z [36;1m      if [ $i -lt $MAX_RETRIES ]; then[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6784259Z [36;1m        echo "鈴?绛夊緟 30 鍒嗛挓鍚庨噸璇?.."[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6784533Z [36;1m        sleep $RETRY_DELAY[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6784819Z [36;1m      fi[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6785025Z [36;1m      ;;[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6785245Z [36;1m  esac[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6785440Z [36;1mdone[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6785633Z [36;1m[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6785839Z [36;1mecho "馃挜 鎵€鏈?$MAX_RETRIES 娆￠噸璇曞潎澶辫触"[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6786101Z [36;1mexit 1[0m
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6814381Z shell: /usr/bin/bash -e {0}
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6814702Z env:
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6814987Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6815425Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6815859Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6816279Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6816664Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6817046Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6817621Z   EUSERV_USERNAME: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6817894Z   EUSERV_PASSWORD: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6818146Z   EUSERV_2FA: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6818407Z   CAPTCHA_USERID: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6818668Z   CAPTCHA_APIKEY: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6818920Z   EMAIL_HOST: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6819154Z   EMAIL_USERNAME: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6819394Z   EMAIL_PASSWORD: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6819641Z   NOTIFICATION_EMAIL: ***
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6819874Z   SMTP_HOST: 
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6820080Z   SMTP_PORT: 
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6820279Z ##[endgroup]
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6914968Z =========================================
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6925194Z 馃攧 灏濊瘯 1/3 - Thu Jan 22 04:40:06 UTC 2026
+renew-vps	Run renewal script with retry	2026-01-22T04:40:06.6925675Z =========================================
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8315491Z --- 寮€濮?Euserv 鑷姩缁湡浠诲姟 ---
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8316381Z 妫€娴嬪埌闇€瑕?FA楠岃瘉
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8316866Z 鐢熸垚鐨?FA鍔ㄦ€佸瘑鐮? 075759
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8317322Z 2FA楠岃瘉閫氳繃
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8317723Z 鐧诲綍鎴愬姛
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8318183Z 姝ｅ湪璁块棶鏈嶅姟鍣ㄥ垪琛ㄩ〉闈?..
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8318787Z 鉁?妫€娴嬪埌鎵€鏈夋湇鍔″櫒鍧囨棤闇€缁湡銆傝鎯呭涓嬶細
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8319408Z    - 鏈嶅姟鍣?475995: 鍙画绾︽棩鏈熶负 2026-02-19
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8320331Z 馃搮 涓嬫缁害鏃ユ湡: 2026-02-19
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8320764Z 馃攧 璁剧疆涓嬫杩愯 cron: 0 0 19 2 *
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8321186Z 鈩癸笍 鏈埌缁害鏃ユ湡锛岃烦杩囨墽琛屻€?renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8321804Z 姝ｅ湪鍑嗗鍙戦€佺姸鎬侀€氱煡閭欢...
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8322206Z 馃帀 鐘舵€侀€氱煡閭欢宸叉垚鍔熷彂閫侊紒
+renew-vps	Run renewal script with retry	2026-01-22T04:40:14.8553004Z 鈴笍 鏈埌缁害鏃ユ湡锛岃烦杩囨墽琛?(鍔ㄦ€佽皟搴﹀皢鏇存柊 cron)
+renew-vps	Update schedule for next renewal	锘?026-01-22T04:40:14.8603604Z ##[group]Run gr2m/set-cron-schedule-action@v2
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8603916Z with:
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8604675Z   token: ***
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8604915Z   cron: 0 0 19 2 *
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8605148Z   workflow: renewal.yml
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8605420Z   message: ci(renewal): 鏇存柊涓嬫缁害鏃堕棿涓?2026-02-19
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8605731Z env:
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8605996Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8606421Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8606834Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8607209Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8607576Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8607945Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:14.8608260Z ##[endgroup]
+renew-vps	Update schedule for next renewal	2026-01-22T04:40:16.1574844Z Schedule for "Euserv VPS Renewal" set to: ["0 0 19 2 *"]
+renew-vps	Post Cache Virtual Environment	锘?026-01-22T04:40:16.2122367Z Post job cleanup.
+renew-vps	Post Cache Virtual Environment	2026-01-22T04:40:16.3328155Z Cache hit occurred on the primary key Linux-venv-4dfcf292a4b2e83a40970c5d42a3b2527eaa03fda3d928a26a7d7401e12086eb, not saving cache.
+renew-vps	Post Set up Python	锘?026-01-22T04:40:16.3472251Z Post job cleanup.
+renew-vps	Post Checkout repository	锘?026-01-22T04:40:16.4985296Z Post job cleanup.
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5848487Z [command]/usr/bin/git version
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5880463Z git version 2.52.0
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5917838Z Temporarily overriding HOME='/home/runner/work/_temp/72157f89-10f0-4c1e-8009-bda03594d98f' before making global git config changes
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5919122Z Adding repository directory to the temporary git global config as a safe directory
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5923095Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/euserv-renewal-bot/euserv-renewal-bot
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5955175Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.5982797Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6161660Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6179439Z http.https://github.com/.extraheader
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6190527Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6214919Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6385610Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+renew-vps	Post Checkout repository	2026-01-22T04:40:16.6414569Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+renew-vps	Complete job	锘?026-01-22T04:40:16.6673111Z Cleaning up orphan processes

@@ -151,6 +151,12 @@ class RenewalBot:
         self.sess_id: str | None = None
         self._ocr = None  # OCR 实例懒加载
     
+    def _cleanup(self) -> None:
+        """清理资源，关闭 HTTP Session"""
+        if self.session:
+            self.session.close()
+            self.session = None
+    
     # ==================== 日志相关 ====================
     
     def log(self, info: str, level: LogLevel = LogLevel.INFO) -> None:
@@ -684,6 +690,7 @@ class RenewalBot:
             exit_code = EXIT_FAILURE
             self.log(f"❗ 脚本执行过程中发生致命错误: {e}")
         finally:
+            self._cleanup()  # 关闭 HTTP Session
             self.send_status_email(status)
         
         return exit_code
