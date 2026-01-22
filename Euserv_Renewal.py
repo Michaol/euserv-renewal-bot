@@ -84,6 +84,11 @@ TWO_FA_PROMPT = "To finish the login process enter the PIN that is shown in yout
 LOGIN_SUCCESS_INDICATORS = ("Hello", "Confirm or change your customer data here")
 RENEWAL_DATE_PATTERN = r"Contract extension possible from"
 
+# URL 常量
+EUSERV_BASE_URL = "https://support.euserv.com/index.iphp"
+EUSERV_CAPTCHA_URL = "https://support.euserv.com/securimage_show.php"
+TRUECAPTCHA_API_URL = "https://api.apitruecaptcha.org/one/gettext"
+
 LOG_MESSAGES: list[str] = []
 CURRENT_LOGIN_ATTEMPT = 1
 
@@ -205,7 +210,7 @@ def _get_ocr():
     return _ocr_instance
 
 
-def _solve_captcha_local(image_bytes):
+def _solve_captcha_local(image_bytes: bytes) -> str | None:
     """使用本地 ddddocr 识别验证码"""
     ocr = _get_ocr()  # 使用缓存实例
     captcha_text = ocr.classification(image_bytes)
@@ -225,10 +230,9 @@ def _solve_captcha_local(image_bytes):
     return captcha_text
 
 
-def _solve_captcha_api(image_bytes):
+def _solve_captcha_api(image_bytes: bytes) -> str | None:
     """使用 TrueCaptcha API 识别验证码"""
     encoded_string = base64.b64encode(image_bytes).decode('ascii')
-    url = 'https://api.apitruecaptcha.org/one/gettext'
     
     data = {
         'userid': CAPTCHA_USERID, 
@@ -239,7 +243,7 @@ def _solve_captcha_api(image_bytes):
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            api_response = requests.post(url=url, json=data, timeout=API_TIMEOUT_SECONDS)
+            api_response = requests.post(url=TRUECAPTCHA_API_URL, json=data, timeout=API_TIMEOUT_SECONDS)
             api_response.raise_for_status()
             result_data = api_response.json()
             
@@ -362,13 +366,12 @@ def _is_login_success(response_text: str) -> bool:
 
 
 @login_retry(max_retry=LOGIN_MAX_RETRY_COUNT)
-def login(username, password):
+def login(username: str, password: str) -> tuple[str, requests.Session]:
+    """执行登录流程，处理验证码和2FA"""
     headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
-    url = "https://support.euserv.com/index.iphp"
-    captcha_image_url = "https://support.euserv.com/securimage_show.php"
     session = requests.Session()
 
-    sess_res = session.get(url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
+    sess_res = session.get(EUSERV_BASE_URL, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
     sess_res.raise_for_status()
     sess_id = sess_res.cookies.get('PHPSESSID')
     if not sess_id:
@@ -380,7 +383,7 @@ def login(username, password):
         "email": username, "password": password, "form_selected_language": "en",
         "Submit": "Login", "subaction": "login", "sess_id": sess_id,
     }
-    f = session.post(url, headers=headers, data=login_data, timeout=HTTP_TIMEOUT_SECONDS)
+    f = session.post(EUSERV_BASE_URL, headers=headers, data=login_data, timeout=HTTP_TIMEOUT_SECONDS)
     f.raise_for_status()
 
     if _is_login_success(f.text):
@@ -389,13 +392,13 @@ def login(username, password):
 
     # 处理验证码
     if CAPTCHA_PROMPT in f.text:
-        f = _handle_captcha(session, url, captcha_image_url, headers, sess_id, username, password)
+        f = _handle_captcha(session, EUSERV_BASE_URL, EUSERV_CAPTCHA_URL, headers, sess_id, username, password)
         if f is None:
             return "-1", session
 
     # 处理2FA
     if TWO_FA_PROMPT in f.text:
-        f = _handle_2fa(session, url, headers, f.text)
+        f = _handle_2fa(session, EUSERV_BASE_URL, headers, f.text)
         if f is None:
             return "-1", session
 
@@ -406,7 +409,7 @@ def login(username, password):
     log("登录失败，所有验证尝试后仍未成功。")
     return "-1", session
 
-def _extract_email_body(msg):
+def _extract_email_body(msg: email.message.Message) -> str:
     """从邮件消息中提取正文内容"""
     if msg.is_multipart():
         for part in msg.walk():
@@ -416,7 +419,7 @@ def _extract_email_body(msg):
     return msg.get_payload(decode=True).decode()
 
 
-def _fetch_pin_from_email(mail, search_criteria):
+def _fetch_pin_from_email(mail: imaplib.IMAP4_SSL, search_criteria: str) -> str | None:
     """从邮箱中搜索并提取PIN码"""
     status, messages = mail.search(None, search_criteria)
     if status != 'OK' or not messages[0]:
@@ -434,7 +437,7 @@ def _fetch_pin_from_email(mail, search_criteria):
     return None
 
 
-def get_pin_from_gmail(host, username, password):
+def get_pin_from_gmail(host: str, username: str, password: str) -> str:
     log("正在连接Gmail获取PIN码...")
     today_str = date.today().strftime('%d-%b-%Y')
     search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
@@ -585,7 +588,7 @@ class RenewalBot:
             server.sendmail(sender, [recipient], msg.as_string())
             server.quit()
             self.log("状态通知邮件已成功发送！", LogLevel.CELEBRATION)
-        except Exception as e:
+        except smtplib.SMTPException as e:
             self.log(f"发送邮件失败: {e}", LogLevel.ERROR)
 
     def _perform_login(self) -> tuple[str, requests.Session]:
@@ -650,35 +653,39 @@ class RenewalBot:
     def _check_post_renewal_status(self, sess_id: str, session: requests.Session) -> None:
         """检查续期后的服务器状态，并显示下次续约日期。"""
         time.sleep(POST_RENEWAL_CHECK_DELAY)
-        server_list = get_servers(sess_id, session)
+        server_list = self._fetch_server_list_with_retry(sess_id, session)
+        servers_still_to_renew = [sv["id"] for sv in server_list if sv["renewable"]]
         
-        # 如果没有读取到日期，再等 30 秒重试一次（Euserv 可能需要时间更新状态）
+        if servers_still_to_renew:
+            for server_id in servers_still_to_renew:
+                self.log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
+        else:
+            self.log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
+            self._display_next_renewal_dates(server_list)
+
+    def _fetch_server_list_with_retry(self, sess_id: str, session: requests.Session) -> list[dict]:
+        """获取服务器列表，如果没有日期则重试一次。"""
+        server_list = get_servers(sess_id, session)
         has_valid_date = any(s['date'] and s['date'] != "未知日期" for s in server_list)
         if not has_valid_date:
             self.log("首次读取未获取到续约日期，等待 30 秒后重试...")
             time.sleep(30)
             server_list = get_servers(sess_id, session)
+        return server_list
+
+    def _display_next_renewal_dates(self, server_list: list[dict]) -> None:
+        """显示每台服务器的下次续约日期并输出最早日期。"""
+        earliest_date = None
+        for server in server_list:
+            if server['date'] and server['date'] != "未知日期":
+                self.log(f"   - 服务器 {server['id']}: 下次可续约日期 {server['date']}")
+                if earliest_date is None or server['date'] < earliest_date:
+                    earliest_date = server['date']
         
-        servers_still_to_renew = [sv["id"] for sv in server_list if sv["renewable"]]
-        
-        if not servers_still_to_renew:
-            self.log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
-            # 显示每台服务器的下次续约日期
-            earliest_date = None
-            for server in server_list:
-                if server['date'] and server['date'] != "未知日期":
-                    self.log(f"   - 服务器 {server['id']}: 下次可续约日期 {server['date']}")
-                    if earliest_date is None or server['date'] < earliest_date:
-                        earliest_date = server['date']
-            
-            # 输出最早的续约日期
-            if earliest_date:
-                self.log(f"📅 下次续约窗口开启时间: {earliest_date}", LogLevel.INFO)
-                if GITHUB_OUTPUT:
-                    self._output_next_schedule(earliest_date)
-        else:
-            for server_id in servers_still_to_renew:
-                self.log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
+        if earliest_date:
+            self.log(f"📅 下次续约窗口开启时间: {earliest_date}", LogLevel.INFO)
+            if GITHUB_OUTPUT:
+                self._output_next_schedule(earliest_date)
 
     def run(self) -> int:
         """执行续期任务的主入口。
