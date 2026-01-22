@@ -29,6 +29,26 @@
 
 ### 更新记录
 
+#### v2.1.0 (2026-01-22) - 中文
+
+##### 架构优化
+
+- 🏗️ **Phase 3 架构统一**：将 15+ 顶层函数移入 `RenewalBot` 类
+- 🧹 消除全局变量 `LOG_MESSAGES`, `CURRENT_LOGIN_ATTEMPT`, `_ocr_instance`
+- ⚡ OCR 预热：启动时预加载模型，减少首次识别延迟
+- 🔒 HTTP Session 资源管理：添加 `_cleanup()` 方法确保正确关闭
+
+##### 测试覆盖
+
+- 🧪 新增 pytest 测试套件 (`tests/test_renewal.py`)
+- 🎯 9 个测试类覆盖核心功能
+
+##### 代码质量
+
+- 📝 10+ 函数添加完整类型注解
+- 🎯 10 个常量提取 (字符串 + URL)
+- 🔧 降低认知复杂度，拆分复杂方法
+
 #### v2.0.0 (2026-01-15) - 中文
 
 ##### 安全性与稳定性
@@ -37,7 +57,7 @@
 - ⏱️ 为所有 HTTP 请求添加 30 秒超时，防止脚本挂起
 - 📦 锁定依赖版本，确保构建一致性
 
-##### 代码质量
+##### 代码质量 (v2.0.0)
 
 - 🏗️ 新增 `RenewalBot` 类封装全局状态，提高可测试性
 - 🧪 添加 21 个单元测试覆盖核心功能
@@ -140,6 +160,26 @@
 
 ### Changelog
 
+#### v2.1.0 (2026-01-22) - English
+
+##### Architecture Optimization
+
+- 🏗️ **Phase 3 Architecture Unification**: Moved 15+ top-level functions into `RenewalBot` class
+- 🧹 Eliminated global variables `LOG_MESSAGES`, `CURRENT_LOGIN_ATTEMPT`, `_ocr_instance`
+- ⚡ OCR Prewarming: Preload model at startup to reduce first recognition delay
+- 🔒 HTTP Session Resource Management: Added `_cleanup()` method for proper closure
+
+##### Test Coverage
+
+- 🧪 Added pytest test suite (`tests/test_renewal.py`)
+- 🎯 9 test classes covering core functionality
+
+##### Code Quality
+
+- 📝 10+ functions with complete type annotations
+- 🎯 10 constants extracted (strings + URLs)
+- 🔧 Reduced cognitive complexity by splitting complex methods
+
 #### v2.0.0 (2026-01-15) - English
 
 ##### Security and Stability
@@ -148,7 +188,7 @@
 - ⏱️ Added 30-second timeout to all HTTP requests
 - 📦 Locked dependency versions for consistent builds
 
-##### Code Quality
+##### Code Quality (v2.0.0)
 
 - 🏗️ Added `RenewalBot` class to encapsulate global state
 - 🧪 Added 21 unit tests covering core functionality
