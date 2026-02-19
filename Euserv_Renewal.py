@@ -541,8 +541,8 @@ class RenewalBot:
         soup = BeautifulSoup(f.text, "html.parser")
         selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
         matched_rows = soup.select(selector)
-        self.log(f"页面解析: 匹配到 {len(matched_rows)} 行 <tr> 元素")
         server_list = [s for tr in matched_rows if (s := self._parse_server_row(tr)) is not None]
+        self.log(f"发现 {len(server_list)} 台服务器合同")
         
         if not server_list:
             self.log("⚠️ 未能从页面解析出任何服务器信息，可能是页面结构变化！", LogLevel.WARNING)
