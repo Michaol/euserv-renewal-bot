@@ -129,9 +129,11 @@ class TestCleanup:
     
     def test_cleanup_with_session(self):
         bot = RenewalBot()
-        bot.session = Mock()
+        mock_session = Mock()
+        bot.session = mock_session
         bot._cleanup()
-        bot.session.close.assert_called_once()
+        mock_session.close.assert_called_once()
+        assert bot.session is None
     
     def test_cleanup_without_session(self):
         bot = RenewalBot()

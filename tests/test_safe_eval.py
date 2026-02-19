@@ -1,5 +1,5 @@
 """
-Tests for safe_eval_math() function.
+Tests for _safe_eval_math() function.
 """
 import pytest
 import sys
@@ -8,11 +8,11 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from Euserv_Renewal import safe_eval_math
+from Euserv_Renewal import _safe_eval_math as safe_eval_math
 
 
 class TestSafeEvalMath:
-    """Test cases for safe_eval_math() function."""
+    """Test cases for _safe_eval_math() function."""
 
     def test_addition(self):
         """Test simple addition."""

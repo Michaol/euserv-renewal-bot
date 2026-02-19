@@ -7,6 +7,8 @@ import time
 import base64
 from enum import Enum
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import imaplib
 import email
@@ -53,7 +55,7 @@ NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL')
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/95.0.4638.69 Safari/537.36"
+    "Chrome/131.0.0.0 Safari/537.36"
 )
 
 # 时间配置 (秒)
@@ -134,6 +136,22 @@ def _safe_eval_math(expr: str) -> int | None:
         return int(_eval(ast.parse(expr, mode='eval').body))
     except (SyntaxError, ValueError, TypeError, ZeroDivisionError):
         return None
+
+
+def _clean_math_expr(raw: str) -> str:
+    """统一清洗验证码数学表达式：替换常见字符并保留数字与运算符。"""
+    cleaned = raw.replace('x', '*').replace('X', '*').replace('=', '').strip()
+    return ''.join(c for c in cleaned if c in '0123456789+-*/')
+
+
+def _try_solve_math(raw: str) -> str | None:
+    """尝试将原始文本作为数学表达式求解，失败返回 None。"""
+    cleaned = _clean_math_expr(raw)
+    if cleaned and any(op in cleaned for op in ['+', '-', '*', '/']):
+        result = _safe_eval_math(cleaned)
+        if result is not None:
+            return str(result)
+    return None
 
 
 class RenewalBot:
@@ -229,21 +247,16 @@ class RenewalBot:
     def _solve_captcha_local(self, image_bytes: bytes) -> str | None:
         """使用本地 ddddocr 识别验证码"""
         ocr = self._get_ocr()
+        # 限制字符集为数字和运算符，提高数学验证码识别率
+        ocr.set_ranges("0123456789+-x/=")
         captcha_text = ocr.classification(image_bytes)
 
         if not captcha_text:
             return None
 
         # 尝试作为数学表达式计算
-        math_text = captcha_text.replace('x', '*').replace('X', '*').replace('=', '').strip()
-        cleaned = ''.join(c for c in math_text if c in '0123456789+-*/')
-
-        if cleaned and any(op in cleaned for op in ['+', '-', '*', '/']):
-            result = _safe_eval_math(cleaned)
-            if result is not None:
-                return str(result)
-
-        return captcha_text
+        result = _try_solve_math(captcha_text)
+        return result if result else captcha_text
     
     def _solve_captcha_api(self, image_bytes: bytes) -> str | None:
         """使用 TrueCaptcha API 识别验证码"""
@@ -268,12 +281,9 @@ class RenewalBot:
                 
                 captcha_text = result_data.get('result')
                 if captcha_text:
-                    # 尝试数学计算
-                    math_expr = captcha_text.replace('x', '*').replace('X', '*')
-                    result = _safe_eval_math(math_expr)
-                    if result is not None:
-                        return str(result)
-                    return captcha_text
+                    # 使用统一的数学表达式求解
+                    result = _try_solve_math(captcha_text)
+                    return result if result else captcha_text
                         
             except requests.RequestException as e:
                 self.log(f"API请求失败 (尝试 {attempt+1}/{max_retries}): {e}")
@@ -357,7 +367,7 @@ class RenewalBot:
             return None
         
         two_fa_code = _totp(EUSERV_2FA)
-        self.log(f"生成的2FA动态密码: {two_fa_code}")
+        self.log(f"已生成2FA动态密码: ****{two_fa_code[-2:]}")
         
         soup = BeautifulSoup(response_text, "html.parser")
         hidden_inputs = soup.find_all("input", type="hidden")
@@ -382,6 +392,17 @@ class RenewalBot:
         """执行登录流程，包含重试逻辑"""
         headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
         self.session = requests.Session()
+        
+        # 配置自动重试策略 (仅对连接错误和 5xx 状态码重试)
+        retry_strategy = Retry(
+            total=2,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=['GET', 'POST'],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount('https://', adapter)
+        self.session.mount('http://', adapter)
 
         for attempt in range(LOGIN_MAX_RETRY_COUNT):
             self.current_login_attempt = attempt + 1
@@ -406,6 +427,7 @@ class RenewalBot:
         if not sess_id:
             raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
         
+        # 模拟浏览器行为：请求 logo 以获取完整的 Cookie 链
         self.session.get("https://support.euserv.com/pic/logo_small.png", headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
 
         login_data = {
@@ -482,7 +504,7 @@ class RenewalBot:
                     mail.select('inbox')
                     pin = self._fetch_pin_from_email(mail, search_criteria)
                     if pin:
-                        self.log(f"成功从Gmail获取PIN码: {pin}")
+                        self.log(f"成功从Gmail获取PIN码: ****{pin[-2:]}")
                         return pin
                 self.log(f"第{i+1}次尝试：未找到PIN邮件，等待30秒...")
                 time.sleep(EMAIL_CHECK_INTERVAL)
@@ -493,29 +515,45 @@ class RenewalBot:
     
     # ==================== 服务器列表 ====================
     
+    def _parse_server_row(self, tr) -> dict | None:
+        """解析单行 <tr> 元素，返回服务器信息字典，无效行返回 None。"""
+        server_id_tag = tr.select_one(".td-z1-sp1-kc")
+        if not server_id_tag:
+            return None
+        server_id = server_id_tag.get_text(strip=True)
+        action_container = tr.select_one(".td-z1-sp2-kc .kc2_order_action_container")
+        if not action_container:
+            return None
+        action_text = action_container.get_text()
+        if RENEWAL_DATE_PATTERN in action_text:
+            renewal_date_match = re.search(r'\d{4}-\d{2}-\d{2}', action_text)
+            renewal_date = renewal_date_match.group(0) if renewal_date_match else "未知日期"
+            return {"id": server_id, "renewable": False, "date": renewal_date}
+        return {"id": server_id, "renewable": True, "date": None}
+
     def _get_servers(self) -> list[dict]:
         """获取服务器列表及其续约状态"""
         self.log("正在访问服务器列表页面...")
-        server_list: list[dict] = []
         url = f"{EUSERV_BASE_URL}?sess_id={self.sess_id}"
         headers = {"user-agent": USER_AGENT}
         f = self.session.get(url=url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
         f.raise_for_status()
         soup = BeautifulSoup(f.text, "html.parser")
         selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
-        for tr in soup.select(selector):
-            server_id_tag = tr.select_one(".td-z1-sp1-kc")
-            if not server_id_tag: continue
-            server_id = server_id_tag.get_text(strip=True)
-            action_container = tr.select_one(".td-z1-sp2-kc .kc2_order_action_container")
-            if action_container:
-                action_text = action_container.get_text()
-                if RENEWAL_DATE_PATTERN in action_text:
-                    renewal_date_match = re.search(r'\d{4}-\d{2}-\d{2}', action_text)
-                    renewal_date = renewal_date_match.group(0) if renewal_date_match else "未知日期"
-                    server_list.append({"id": server_id, "renewable": False, "date": renewal_date})
-                else:
-                    server_list.append({"id": server_id, "renewable": True, "date": None})
+        matched_rows = soup.select(selector)
+        self.log(f"页面解析: 匹配到 {len(matched_rows)} 行 <tr> 元素")
+        server_list = [s for tr in matched_rows if (s := self._parse_server_row(tr)) is not None]
+        
+        if not server_list:
+            self.log("⚠️ 未能从页面解析出任何服务器信息，可能是页面结构变化！", LogLevel.WARNING)
+            # 保存 HTML 用于离线调试
+            try:
+                with open('debug_page.html', 'w', encoding='utf-8') as debug_f:
+                    debug_f.write(f.text)
+                self.log("已保存页面 HTML 到 debug_page.html", LogLevel.INFO)
+            except OSError as e:
+                self.log(f"保存调试页面失败: {e}", LogLevel.WARNING)
+        
         return server_list
     
     # ==================== 续期流程 ====================
@@ -614,7 +652,9 @@ class RenewalBot:
                 self.log(f"警告: 服务器 {server_id} 在续期操作后仍显示为可续约状态。", LogLevel.WARNING)
         else:
             self.log("所有服务器均已成功续订或无需续订！", LogLevel.CELEBRATION)
-            self._display_next_renewal_dates(server_list)
+        
+        # 无论续约状态如何，都尝试输出下次续约日期
+        self._display_next_renewal_dates(server_list)
 
     def _fetch_server_list_with_retry(self) -> list[dict]:
         """获取服务器列表，如果没有日期则重试一次。"""
@@ -671,7 +711,9 @@ class RenewalBot:
             servers_to_renew = [server for server in all_servers if server["renewable"]]
 
             if not all_servers:
-                self.log("未检测到任何服务器合同。", LogLevel.SUCCESS)
+                self.log("未检测到任何服务器合同，请检查页面是否正常！", LogLevel.WARNING)
+                status = "异常"
+                exit_code = EXIT_FAILURE
             elif not servers_to_renew:
                 # 智能调度：未到续约日期，跳过执行
                 self._log_non_renewable_servers(all_servers)

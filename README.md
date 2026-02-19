@@ -29,6 +29,27 @@
 
 ### 更新记录
 
+#### v2.2.0 (2026-02-19) - 中文
+
+##### 关键修复
+
+- 🔴 **修复 cron 调度不更新**：空服务器列表不再静默成功，改为 `EXIT_FAILURE` 并保存调试页面
+- 🔴 **修复续约后 cron 丢失**：无论续约状态如何均输出下次续约日期
+- 🔴 **修复测试套件**：修复因函数重命名导致的 ImportError（3 个测试文件）
+
+##### 安全加固
+
+- 🔒 2FA 密码和 PIN 码日志遮蔽，仅显示末 2 位
+- 🛡️ 新增 `HTTPAdapter` + `Retry` 自动重试策略（5xx 状态码）
+- 🌐 User-Agent 更新至 Chrome 131
+
+##### 优化改进
+
+- 🎯 使用 `ddddocr.set_ranges()` 限制字符集，提高数学验证码识别率
+- 🧹 提取 `_clean_math_expr()` / `_try_solve_math()` 统一数学表达式处理
+- 🧹 提取 `_parse_server_row()` 降低认知复杂度
+- 📊 服务器列表解析增加行数日志，空结果保存 HTML 用于调试
+
 #### v2.1.0 (2026-01-22) - 中文
 
 ##### 架构优化
@@ -159,6 +180,27 @@
 ## English Version
 
 ### Changelog
+
+#### v2.2.0 (2026-02-19) - English
+
+##### Critical Fixes
+
+- 🔴 **Fix cron schedule not updating**: Empty server list now returns `EXIT_FAILURE` and saves debug HTML
+- 🔴 **Fix next_cron lost after renewal**: Always output next renewal date regardless of post-renewal status
+- 🔴 **Fix test suite**: Resolved ImportError in 3 test files caused by function renaming
+
+##### Security Hardening
+
+- 🔒 Mask 2FA codes and PINs in logs (show only last 2 digits)
+- 🛡️ Added `HTTPAdapter` + `Retry` strategy for automatic retries on 5xx errors
+- 🌐 Updated User-Agent to Chrome 131
+
+##### Improvements
+
+- 🎯 Use `ddddocr.set_ranges()` to constrain character set for better math CAPTCHA accuracy
+- 🧹 Extracted `_clean_math_expr()` / `_try_solve_math()` for unified math expression handling
+- 🧹 Extracted `_parse_server_row()` to reduce cognitive complexity
+- 📊 Added row count logging for server list parsing; save HTML on empty results for debugging
 
 #### v2.1.0 (2026-01-22) - English
 

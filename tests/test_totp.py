@@ -9,7 +9,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from Euserv_Renewal import hotp
+from Euserv_Renewal import _hotp as hotp
 
 
 class TestHOTP:
@@ -58,17 +58,19 @@ class TestHOTP:
 
 
 class TestValidateConfig:
-    """Test cases for validate_config() function."""
+    """Test cases for RenewalBot.validate_config() method."""
 
     def test_validate_config_import(self):
-        """Test that validate_config can be imported."""
-        from Euserv_Renewal import validate_config
-        assert callable(validate_config)
+        """Test that RenewalBot has validate_config method."""
+        from Euserv_Renewal import RenewalBot
+        bot = RenewalBot()
+        assert callable(bot.validate_config)
 
     def test_validate_config_returns_tuple(self):
         """Test that validate_config returns a tuple."""
-        from Euserv_Renewal import validate_config
-        result = validate_config()
+        from Euserv_Renewal import RenewalBot
+        bot = RenewalBot()
+        result = bot.validate_config()
         assert isinstance(result, tuple)
         assert len(result) == 2
 
