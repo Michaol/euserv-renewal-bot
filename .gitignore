@@ -1,3 +1,15 @@
+# Python
 __pycache__/
-log_cache.txt
 *.pyc
+.pytest_cache/
+
+# Logs & caches
+log_cache.txt
+run_log.txt
+
+# Debug artifacts
+captcha_failed.png
+debug_page.html
+
+# Virtual environment
+venv/
