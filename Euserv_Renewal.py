@@ -445,7 +445,6 @@ class RenewalBot:
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
 
         for attempt in range(LOGIN_MAX_RETRY_COUNT):
             self.current_login_attempt = attempt + 1
