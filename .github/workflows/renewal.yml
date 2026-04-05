@@ -88,13 +88,13 @@ jobs:
           NEXT_DATE: ${{ steps.renewal.outputs.next_date }}
           GH_TOKEN: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
           sed -i "s|cron: .*|cron: $NEXT_CRON|" .github/workflows/renewal.yml
           git add .github/workflows/renewal.yml
           git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE" || echo "No changes to commit"
-          git -c http.extraHeader="Authorization: Bearer $GH_TOKEN" push origin main
+          gh api --method PUT repos/{owner}/{repo}/actions/workflows/renewal.yml/triggers -H "Accept: application/vnd.github+json" || true
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/Michaol/euserv-renewal-bot.git"
+          git push origin main
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v4
