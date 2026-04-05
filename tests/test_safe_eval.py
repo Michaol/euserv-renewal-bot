@@ -1,7 +1,4 @@
-"""
-Tests for _safe_eval_math() function.
-"""
-import pytest
+"""Tests for _safe_eval_math() function."""
 import sys
 from pathlib import Path
 
@@ -38,11 +35,9 @@ class TestSafeEvalMath:
         """Test operator precedence."""
         assert safe_eval_math("2+3*4") == 14
 
-    def test_parentheses_not_supported(self):
-        """Test that parentheses are not supported (returns None)."""
-        # AST will parse it but our _eval doesn't handle it
+    def test_parentheses_work(self):
+        """Test that parentheses are correctly evaluated via AST parser."""
         result = safe_eval_math("(2+3)*4")
-        # This should work actually since AST handles precedence
         assert result == 20
 
     def test_invalid_expression_letters(self):
