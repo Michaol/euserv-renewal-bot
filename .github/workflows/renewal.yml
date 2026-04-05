@@ -94,7 +94,7 @@ jobs:
           sed -i "s|cron: .*|cron: $NEXT_CRON|" .github/workflows/renewal.yml
           git add .github/workflows/renewal.yml
           git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE" || echo "No changes to commit"
-          git push origin main
+          git -c http.extraHeader="Authorization: Bearer $GH_TOKEN" push origin main
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v4
