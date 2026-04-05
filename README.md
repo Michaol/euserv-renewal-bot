@@ -29,7 +29,34 @@
 
 ### 更新记录
 
-#### v2.2.0 (2026-02-19) - 中文
+#### v2.3.0 (2026-04-05) - 中文
+
+##### 稳定性修复
+
+- 🔴 **Session 过期自动重连**：新增 `_refresh_session()` 方法，续期流程耗时较长后自动重新登录，防止 `_check_post_renewal_status` 因 session 过期而失败
+- 📧 **邮件编码兼容**：`_extract_email_body()` 使用 `part.get_content_charset()` 获取真实编码，支持多种邮件编码格式，避免 UTF-8 硬编码导致的解码失败
+
+##### 代码质量
+
+- 🔧 简化 `_handle_captcha` 参数（7→3），直接从实例读取凭据
+- 🔧 简化 `_handle_2fa` 参数（3→1），内联 origin header 保持原始 `https://www.euserv.com`
+- 🔧 `_renew` 返回值从 `bool` 改为 `None`（始终返回 True 无意义）
+- 🔧 提取 `SERVER_LIST_RETRY_DELAY` 常量，替代 `sleep(30)` 硬编码
+- 🗑️ 移除多余的 `http://` 重试适配器（Euserv 纯 HTTPS）
+
+##### 测试改进
+
+- ✅ 修正测试名 `test_parentheses_not_supported` → `test_parentheses_work`
+- 🧹 移除 `test_safe_eval.py` 中未使用的 `pytest` import
+
+##### CI 优化
+
+- ⚡ 启用 Node.js 24，消除 GitHub Actions 弃用警告
+
+<details>
+<summary>v2.2.0 及更早版本</summary>
+
+#### v2.2.0 (2026-02-19)
 
 ##### 关键修复
 
@@ -50,7 +77,7 @@
 - 🧹 提取 `_parse_server_row()` 降低认知复杂度
 - 📊 服务器列表解析增加行数日志，空结果保存 HTML 用于调试
 
-#### v2.1.0 (2026-01-22) - 中文
+#### v2.1.0 (2026-01-22)
 
 ##### 架构优化
 
@@ -70,7 +97,7 @@
 - 🎯 10 个常量提取 (字符串 + URL)
 - 🔧 降低认知复杂度，拆分复杂方法
 
-#### v2.0.0 (2026-01-15) - 中文
+#### v2.0.0 (2026-01-15)
 
 ##### 安全性与稳定性
 
@@ -89,6 +116,8 @@
 
 - 📧 支持自定义 `SMTP_HOST` 和 `SMTP_PORT` 环境变量
 - ✅ 新增启动时配置验证，明确提示缺失项
+
+</details>
 
 ### 功能特性
 
@@ -171,7 +200,7 @@
 
 ### 免责声明
 
-- 本项目按“原样”提供，作者不对任何因使用此脚本可能导致的服务中断、数据丢失或其他损失负责。
+- 本项目按"原样"提供，作者不对任何因使用此脚本可能导致的服务中断、数据丢失或其他损失负责。
 - EUserv 随时可能更改其网站结构或续约流程，这可能导致此自动化脚本失效。
 - 请自行承担使用风险。
 
@@ -181,7 +210,34 @@
 
 ### Changelog
 
-#### v2.2.0 (2026-02-19) - English
+#### v2.3.0 (2026-04-05) - English
+
+##### Stability Fixes
+
+- 🔴 **Session expiry auto-recovery**: Added `_refresh_session()` method to re-login after long renewal flows, preventing `_check_post_renewal_status` failures due to expired sessions
+- 📧 **Email encoding compatibility**: `_extract_email_body()` now uses `part.get_content_charset()` with UTF-8 fallback, supporting multiple email encodings
+
+##### Code Quality
+
+- 🔧 Simplified `_handle_captcha` parameters (7→3), reads credentials from instance directly
+- 🔧 Simplified `_handle_2fa` parameters (3→1), inlines origin header to preserve original `https://www.euserv.com`
+- 🔧 Changed `_renew` return type from `bool` to `None` (was always returning True)
+- 🔧 Extracted `SERVER_LIST_RETRY_DELAY` constant, replacing hardcoded `sleep(30)`
+- 🗑️ Removed redundant `http://` retry adapter (Euserv is exclusively HTTPS)
+
+##### Test Improvements
+
+- ✅ Fixed test name `test_parentheses_not_supported` → `test_parentheses_work`
+- 🧹 Removed unused `pytest` import from `test_safe_eval.py`
+
+##### CI Optimization
+
+- ⚡ Enabled Node.js 24 to silence GitHub Actions deprecation warning
+
+<details>
+<summary>v2.2.0 and earlier</summary>
+
+#### v2.2.0 (2026-02-19)
 
 ##### Critical Fixes
 
@@ -202,7 +258,7 @@
 - 🧹 Extracted `_parse_server_row()` to reduce cognitive complexity
 - 📊 Added row count logging for server list parsing; save HTML on empty results for debugging
 
-#### v2.1.0 (2026-01-22) - English
+#### v2.1.0 (2026-01-22)
 
 ##### Architecture Optimization
 
@@ -222,7 +278,7 @@
 - 🎯 10 constants extracted (strings + URLs)
 - 🔧 Reduced cognitive complexity by splitting complex methods
 
-#### v2.0.0 (2026-01-15) - English
+#### v2.0.0 (2026-01-15)
 
 ##### Security and Stability
 
@@ -241,6 +297,8 @@
 
 - 📧 Support for custom `SMTP_HOST` and `SMTP_PORT` environment variables
 - ✅ Added startup config validation with clear error messages
+
+</details>
 
 ### Features
 
