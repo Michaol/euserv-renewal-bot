@@ -83,7 +83,7 @@ jobs:
           exit 1
       - name: Update schedule for next renewal
         if: steps.renewal.outputs.next_cron != ''
-        uses: gr2m/set-cron-schedule-action@v2
+        uses: gr2m/set-cron-schedule-action@0f90c165d9102f842649f785f6b28c26ca4f8e51
         with:
           token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
           cron: ${{ steps.renewal.outputs.next_cron }}
