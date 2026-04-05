@@ -92,7 +92,6 @@ jobs:
           sed -i "s|cron: .*|cron: $NEXT_CRON|" .github/workflows/renewal.yml
           git add .github/workflows/renewal.yml
           git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE" || echo "No changes to commit"
-          gh api --method PUT repos/{owner}/{repo}/actions/workflows/renewal.yml/triggers -H "Accept: application/vnd.github+json" || true
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/Michaol/euserv-renewal-bot.git"
           git push origin main
       - name: Upload failed captcha for debugging
