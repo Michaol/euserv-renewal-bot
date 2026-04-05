@@ -67,6 +67,7 @@ LOGIN_MAX_RETRY_COUNT = 3
 WAITING_TIME_OF_PIN = 30
 HTTP_TIMEOUT_SECONDS = 30
 RETRY_DELAY_SECONDS = 5
+SERVER_LIST_RETRY_DELAY = 30
 API_TIMEOUT_SECONDS = 20
 POST_RENEWAL_CHECK_DELAY = 15
 EMAIL_CHECK_INTERVAL = 30
@@ -350,15 +351,7 @@ class RenewalBot:
 
     # ==================== 验证码和2FA处理 ====================
 
-    def _handle_captcha(
-        self,
-        url: str,
-        captcha_image_url: str,
-        headers: dict,
-        sess_id: str,
-        username: str,
-        password: str,
-    ) -> requests.Response | None:
+    def _handle_captcha(self, url: str, captcha_image_url: str, headers: dict) -> requests.Response | None:
         """处理图片验证码，返回更新后的响应"""
         self.log("检测到图片验证码，正在处理...")
         image_res = self.session.get(
@@ -373,10 +366,10 @@ class RenewalBot:
 
         self.log(f"验证码计算结果是: {captcha_code}")
         post_data = {
-            "email": username,
-            "password": password,
+            "email": EUSERV_USERNAME,
+            "password": EUSERV_PASSWORD,
             "subaction": "login",
-            "sess_id": sess_id,
+            "sess_id": self.sess_id,
             "captcha_code": str(captcha_code),
         }
         response = self.session.post(
@@ -398,9 +391,7 @@ class RenewalBot:
         self.log("图片验证码验证通过")
         return response
 
-    def _handle_2fa(
-        self, url: str, headers: dict, response_text: str
-    ) -> requests.Response | None:
+    def _handle_2fa(self, response_text: str) -> requests.Response | None:
         """处理2FA验证，返回更新后的响应"""
         self.log("检测到需要2FA验证")
         if not EUSERV_2FA:
@@ -416,7 +407,10 @@ class RenewalBot:
         two_fa_data["pin"] = two_fa_code
 
         response = self.session.post(
-            url, headers=headers, data=two_fa_data, timeout=HTTP_TIMEOUT_SECONDS
+            EUSERV_BASE_URL,
+            headers={"user-agent": USER_AGENT, "origin": "https://www.euserv.com"},
+            data=two_fa_data,
+            timeout=HTTP_TIMEOUT_SECONDS,
         )
         if TWO_FA_PROMPT in response.text:
             self.log("2FA验证失败")
@@ -430,6 +424,12 @@ class RenewalBot:
         return any(indicator in response_text for indicator in LOGIN_SUCCESS_INDICATORS)
 
     # ==================== 登录流程 ====================
+
+    def _refresh_session(self) -> None:
+        """续期流程后重新登录，确保 session 未过期。"""
+        self.log("续期操作时间较长，正在重新登录以刷新 session...")
+        self._cleanup()
+        self._perform_login()
 
     def _perform_login(self) -> tuple[str, requests.Session]:
         """执行登录流程，包含重试逻辑"""
@@ -502,20 +502,13 @@ class RenewalBot:
 
         # 处理验证码
         if CAPTCHA_PROMPT in response.text:
-            response = self._handle_captcha(
-                EUSERV_BASE_URL,
-                EUSERV_CAPTCHA_URL,
-                headers,
-                sess_id,
-                EUSERV_USERNAME,
-                EUSERV_PASSWORD,
-            )
+            response = self._handle_captcha(EUSERV_BASE_URL, EUSERV_CAPTCHA_URL, headers)
             if response is None:
                 return None
 
         # 处理2FA
         if TWO_FA_PROMPT in response.text:
-            response = self._handle_2fa(EUSERV_BASE_URL, headers, response.text)
+            response = self._handle_2fa(response.text)
             if response is None:
                 return None
 
@@ -532,12 +525,19 @@ class RenewalBot:
     @staticmethod
     def _extract_email_body(msg: email.message.Message) -> str:
         """从邮件消息中提取正文内容"""
+        def _decode_payload(part: email.message.Message) -> str:
+            charset = part.get_content_charset() or "utf-8"
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                return ""
+            return payload.decode(charset, errors="replace")
+
         if msg.is_multipart():
             for part in msg.walk():
                 if part.get_content_type() == "text/plain":
-                    return part.get_payload(decode=True).decode()
+                    return _decode_payload(part)
             return ""
-        return msg.get_payload(decode=True).decode()
+        return _decode_payload(msg)
 
     def _fetch_pin_from_email(
         self, mail: imaplib.IMAP4_SSL, search_criteria: str
@@ -638,7 +638,7 @@ class RenewalBot:
 
     # ==================== 续期流程 ====================
 
-    def _renew(self, order_id: str) -> bool:
+    def _renew(self, order_id: str) -> None:
         """执行服务器续约流程"""
         self.log(f"正在为服务器 {order_id} 触发续订流程...")
         url = EUSERV_BASE_URL
@@ -697,7 +697,6 @@ class RenewalBot:
             url, headers=headers, data=data4, timeout=HTTP_TIMEOUT_SECONDS
         )
         final_res.raise_for_status()
-        return True
 
     # ==================== 续期后检查 ====================
 
@@ -774,8 +773,8 @@ class RenewalBot:
         server_list = self._get_servers()
         has_valid_date = any(s["date"] and s["date"] != "未知日期" for s in server_list)
         if not has_valid_date:
-            self.log("首次读取未获取到续约日期，等待 30 秒后重试...")
-            time.sleep(30)
+            self.log(f"首次读取未获取到续约日期，等待 {SERVER_LIST_RETRY_DELAY} 秒后重试...")
+            time.sleep(SERVER_LIST_RETRY_DELAY)
             server_list = self._get_servers()
         return server_list
 
@@ -829,6 +828,7 @@ class RenewalBot:
                 )
                 status = "异常"
                 exit_code = EXIT_FAILURE
+                self._refresh_session()
             elif not servers_to_renew:
                 # 智能调度：未到续约日期，跳过执行
                 self._log_non_renewable_servers(all_servers)
@@ -838,6 +838,7 @@ class RenewalBot:
                 if not self._process_server_renewals(servers_to_renew):
                     status = "失败"
                     exit_code = EXIT_FAILURE
+                self._refresh_session()
 
             self._check_post_renewal_status()
             self.log("\n🏁 --- 所有工作完成 ---")
