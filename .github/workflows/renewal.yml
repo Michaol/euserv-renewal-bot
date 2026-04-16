@@ -81,12 +81,22 @@ jobs:
           exit 1
       - name: Update schedule for next renewal
         if: steps.renewal.outputs.next_cron != ''
-        uses: gr2m/set-cron-schedule-action@v2.1.0
-        with:
-          token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
-          cron: ${{ steps.renewal.outputs.next_cron }}
-          workflow: renewal.yml
-          message: "ci(renewal): 更新下次续约时间为 ${{ steps.renewal.outputs.next_date }}"
+        env:
+          GH_TOKEN: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
+          NEXT_CRON: ${{ steps.renewal.outputs.next_cron }}
+          NEXT_DATE: ${{ steps.renewal.outputs.next_date }}
+        run: |
+          CURRENT_CRON=$(grep -oP '(?<=- cron: ).*' .github/workflows/renewal.yml)
+          if [ "$CURRENT_CRON" = "$NEXT_CRON" ]; then
+            echo "⏭️ Cron 未变化，跳过更新"
+            exit 0
+          fi
+          sed -i "s|- cron: $CURRENT_CRON|- cron: $NEXT_CRON|" .github/workflows/renewal.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/renewal.yml
+          git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v7
