@@ -86,17 +86,27 @@ jobs:
           NEXT_CRON: ${{ steps.renewal.outputs.next_cron }}
           NEXT_DATE: ${{ steps.renewal.outputs.next_date }}
         run: |
-          CURRENT_CRON=$(grep -oP '(?<=- cron: ).*' .github/workflows/renewal.yml)
-          if [ "$CURRENT_CRON" = "$NEXT_CRON" ]; then
-            echo "⏭️ Cron 未变化，跳过更新"
-            exit 0
+          python3 -c "
+          import re, sys
+          path = '.github/workflows/renewal.yml'
+          new_cron = '${{ steps.renewal.outputs.next_cron }}'
+          with open(path, 'r') as f:
+              content = f.read()
+          updated = re.sub(r'(- cron: ).*', r'\g<1>' + new_cron, content, count=1)
+          if updated == content:
+              print('⏭️ Cron 未变化，跳过更新')
+              sys.exit(0)
+          with open(path, 'w') as f:
+              f.write(updated)
+          print(f'✅ Cron 已更新为: {new_cron}')
+          "
+          if ! git diff --quiet .github/workflows/renewal.yml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/workflows/renewal.yml
+            git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
           fi
-          sed -i "s|- cron: $CURRENT_CRON|- cron: $NEXT_CRON|" .github/workflows/renewal.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/renewal.yml
-          git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v7
