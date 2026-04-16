@@ -89,8 +89,9 @@ LOGIN_SUCCESS_INDICATORS = ("Hello", "Confirm or change your customer data here"
 RENEWAL_DATE_PATTERN = r"Contract extension possible from"
 
 # URL 常量
-EUSERV_BASE_URL = "https://support.euserv.com/index.iphp"
-EUSERV_CAPTCHA_URL = "https://support.euserv.com/securimage_show.php"
+EUSERV_ORIGIN = "https://support.euserv.com"
+EUSERV_BASE_URL = f"{EUSERV_ORIGIN}/index.iphp"
+EUSERV_CAPTCHA_URL = f"{EUSERV_ORIGIN}/securimage_show.php"
 TRUECAPTCHA_API_URL = "https://api.apitruecaptcha.org/one/gettext"
 
 
@@ -402,7 +403,7 @@ class RenewalBot:
 
         response = self.session.post(
             EUSERV_BASE_URL,
-            headers={"user-agent": USER_AGENT, "origin": "https://support.euserv.com"},
+            headers={"user-agent": USER_AGENT, "origin": EUSERV_ORIGIN},
             data=two_fa_data,
             timeout=HTTP_TIMEOUT_SECONDS,
         )
@@ -434,7 +435,7 @@ class RenewalBot:
 
     def _perform_login(self) -> None:
         """执行登录流程，包含重试逻辑。成功后设置 self.sess_id 和 self.session。"""
-        headers = {"user-agent": USER_AGENT, "origin": "https://support.euserv.com"}
+        headers = {"user-agent": USER_AGENT, "origin": EUSERV_ORIGIN}
         self.session = requests.Session()
 
         # 配置自动重试策略 (仅对连接错误和 5xx 状态码重试)
@@ -476,7 +477,7 @@ class RenewalBot:
 
         # 模拟浏览器行为：请求 logo 以获取完整的 Cookie 链
         self.session.get(
-            "https://support.euserv.com/pic/logo_small.png",
+            f"{EUSERV_ORIGIN}/pic/logo_small.png",
             headers=headers,
             timeout=HTTP_TIMEOUT_SECONDS,
         )
@@ -505,13 +506,13 @@ class RenewalBot:
         if CAPTCHA_PROMPT in response.text:
             response = self._handle_captcha(EUSERV_BASE_URL, EUSERV_CAPTCHA_URL, headers)
             if response is None:
-                return None
+                return False
 
         # 处理2FA
         if TWO_FA_PROMPT in response.text:
             response = self._handle_2fa(response.text)
             if response is None:
-                return None
+                return False
 
         if self._is_login_success(response.text):
             self.log("登录成功")
@@ -651,7 +652,7 @@ class RenewalBot:
         headers = {
             "user-agent": USER_AGENT,
             "Host": "support.euserv.com",
-            "origin": "https://support.euserv.com",
+            "origin": EUSERV_ORIGIN,
         }
         data1 = {
             "Submit": "Extend contract",

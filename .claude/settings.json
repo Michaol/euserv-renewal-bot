@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(gh workflow:*)",
+      "Bash(git commit:*)",
+      "Bash(git ls-remote:*)",
+      "Read(//e/DEV/euserv-renewal-bot/**)"
+    ]
+  }
+}
