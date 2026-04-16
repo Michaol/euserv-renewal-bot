@@ -29,6 +29,20 @@
 
 ### 更新记录
 
+#### v2.3.1 (2026-04-16) - 中文
+
+##### 关键修复
+
+- 🔴 **修复验证码丢失**：修复首次登录触发验证码时 `sess_id` 未及时同步引起的验证码提交失败
+- 🔴 **增强邮件重试网络恢复**：IMAP 连接断开或认证异常将触发条件重试，遇到网络波动不再直接崩毁
+- 🔴 **修复状态邮件误报**：使用智能调度跳过续约时（未到期），邮件报告明确标记为“跳过”而非误报“成功”
+- 🟡 **修复续期状态覆写**：增加 `_safe_refresh_session()`，避免续期成功后附带的刷新 session 失败覆写主干成功状态
+
+##### 优化改进
+
+- 🛡️ **统一请求源头**：统一所有请求 `Origin` 头为 `https://support.euserv.com`，防范风控拦截
+- 🔧 **构建完善**：添加 `pyproject.toml` 规范环境与 pytest pythonpath (移除 `sys.path` hack)，清理无效冗余返回值和注释
+
 #### v2.3.0 (2026-04-05) - 中文
 
 ##### 稳定性修复
@@ -209,6 +223,20 @@
 ## English Version
 
 ### Changelog
+
+#### v2.3.1 (2026-04-16) - English
+
+##### Critical Fixes
+
+- 🔴 **Fix CAPTCHA failure**: Fixed an issue where `sess_id` was not synchronized during the first login attempt, causing CAPTCHA submission to fail
+- 🔴 **Enhance email retry capability**: IMAP connection drops or auth exceptions now trigger conditional retries instead of crashing immediately on temporary network issues
+- 🔴 **Fix status email misinformation**: When smart scheduling skips renewal (not due yet), the email report is explicitly marked as "Skipped" instead of falsely reporting "Success"
+- 🟡 **Fix renewal status override**: Added `_safe_refresh_session()` to prevent a session refresh failure from overwriting a successful renewal status
+
+##### Improvements
+
+- 🛡️ **Unified request origin**: Unified all `Origin` headers to `https://support.euserv.com` to prevent potential WAF blocks
+- 🔧 **Build system**: Added `pyproject.toml` for standardizing environments and pytest `pythonpath` (removed `sys.path` hacks), cleaned up redundant return values
 
 #### v2.3.0 (2026-04-05) - English
 

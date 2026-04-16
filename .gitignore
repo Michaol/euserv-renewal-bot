@@ -1,7 +1,7 @@
 # Python
 __pycache__/
 *.pyc
-.pytest_cache/
+.pytest_cache/\r\n.ruff_cache/
 
 # Logs & caches
 log_cache.txt
@@ -13,3 +13,4 @@ debug_page.html
 
 # Virtual environment
 venv/
+.ace-tool/

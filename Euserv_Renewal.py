@@ -25,25 +25,17 @@ import operator
 class CaptchaError(Exception):
     """验证码处理相关错误"""
 
-    pass
-
 
 class PinRetrievalError(Exception):
     """PIN码获取相关错误"""
-
-    pass
 
 
 class LoginError(Exception):
     """登录相关错误"""
 
-    pass
-
 
 class RenewalError(Exception):
     """续期相关错误"""
-
-    pass
 
 
 # 环境变量配置
@@ -64,7 +56,7 @@ USER_AGENT = (
 
 # 时间配置 (秒)
 LOGIN_MAX_RETRY_COUNT = 3
-WAITING_TIME_OF_PIN = 30
+PIN_WAIT_SECONDS = 30
 HTTP_TIMEOUT_SECONDS = 30
 RETRY_DELAY_SECONDS = 5
 SERVER_LIST_RETRY_DELAY = 30
@@ -292,6 +284,8 @@ class RenewalBot:
         max_retries = 3
         for attempt in range(max_retries):
             try:
+                # 使用全局 requests.post 而非 self.session.post，
+                # 避免将 EUserv 的 cookies 发送到第三方 API
                 api_response = requests.post(
                     url=TRUECAPTCHA_API_URL, json=data, timeout=API_TIMEOUT_SECONDS
                 )
@@ -408,7 +402,7 @@ class RenewalBot:
 
         response = self.session.post(
             EUSERV_BASE_URL,
-            headers={"user-agent": USER_AGENT, "origin": "https://www.euserv.com"},
+            headers={"user-agent": USER_AGENT, "origin": "https://support.euserv.com"},
             data=two_fa_data,
             timeout=HTTP_TIMEOUT_SECONDS,
         )
@@ -431,9 +425,16 @@ class RenewalBot:
         self._cleanup()
         self._perform_login()
 
-    def _perform_login(self) -> tuple[str, requests.Session]:
-        """执行登录流程，包含重试逻辑"""
-        headers = {"user-agent": USER_AGENT, "origin": "https://www.euserv.com"}
+    def _safe_refresh_session(self) -> None:
+        """安全刷新 session，失败时仅记录警告而不影响主流程状态。"""
+        try:
+            self._refresh_session()
+        except LoginError as e:
+            self.log(f"刷新 session 失败 (不影响已提交的续约): {e}", LogLevel.WARNING)
+
+    def _perform_login(self) -> None:
+        """执行登录流程，包含重试逻辑。成功后设置 self.sess_id 和 self.session。"""
+        headers = {"user-agent": USER_AGENT, "origin": "https://support.euserv.com"}
         self.session = requests.Session()
 
         # 配置自动重试策略 (仅对连接错误和 5xx 状态码重试)
@@ -453,16 +454,15 @@ class RenewalBot:
                 time.sleep(RETRY_DELAY_SECONDS)
 
             try:
-                result = self._attempt_login(headers)
-                if result:
-                    return result
+                if self._attempt_login(headers):
+                    return
             except (requests.RequestException, ValueError) as e:
                 self.log(f"登录尝试失败: {e}")
 
         raise LoginError("登录失败次数过多，退出脚本。")
 
-    def _attempt_login(self, headers: dict) -> tuple[str, requests.Session] | None:
-        """单次登录尝试"""
+    def _attempt_login(self, headers: dict) -> bool:
+        """单次登录尝试，成功返回 True 并设置 self.sess_id/self.session。"""
         sess_res = self.session.get(
             EUSERV_BASE_URL, headers=headers, timeout=HTTP_TIMEOUT_SECONDS
         )
@@ -470,6 +470,9 @@ class RenewalBot:
         sess_id = sess_res.cookies.get("PHPSESSID")
         if not sess_id:
             raise ValueError("无法从初始响应的Cookie中找到PHPSESSID")
+
+        # [C1 fix] 立即同步 sess_id，确保后续验证码/2FA 流程可用
+        self.sess_id = sess_id
 
         # 模拟浏览器行为：请求 logo 以获取完整的 Cookie 链
         self.session.get(
@@ -496,8 +499,7 @@ class RenewalBot:
 
         if self._is_login_success(response.text):
             self.log("登录成功")
-            self.sess_id = sess_id
-            return sess_id, self.session
+            return True
 
         # 处理验证码
         if CAPTCHA_PROMPT in response.text:
@@ -513,11 +515,10 @@ class RenewalBot:
 
         if self._is_login_success(response.text):
             self.log("登录成功")
-            self.sess_id = sess_id
-            return sess_id, self.session
+            return True
 
         self.log("登录失败，所有验证尝试后仍未成功。")
-        return None
+        return False
 
     # ==================== PIN 码获取 ====================
 
@@ -563,6 +564,7 @@ class RenewalBot:
         today_str = date.today().strftime("%d-%b-%Y")
         search_criteria = f'(SINCE "{today_str}" FROM "no-reply@euserv.com" SUBJECT "EUserv - PIN for the Confirmation of a Security Check")'
 
+        last_error: Exception | None = None
         for i in range(EMAIL_MAX_RETRIES):
             try:
                 mail = imaplib.IMAP4_SSL(EMAIL_HOST)
@@ -578,11 +580,16 @@ class RenewalBot:
                         mail.logout()
                     except Exception:
                         pass
-                self.log(f"第{i + 1}次尝试：未找到PIN邮件，等待30秒...")
+                self.log(f"第{i + 1}次尝试：未找到PIN邮件，等待{EMAIL_CHECK_INTERVAL}秒...")
                 time.sleep(EMAIL_CHECK_INTERVAL)
             except (imaplib.IMAP4.error, OSError) as e:
-                self.log(f"获取PIN码时发生错误: {e}")
-                raise PinRetrievalError(f"邮件连接错误: {e}") from e
+                last_error = e
+                self.log(f"获取PIN码时发生错误 (尝试 {i + 1}/{EMAIL_MAX_RETRIES}): {e}")
+                if i < EMAIL_MAX_RETRIES - 1:
+                    self.log(f"将在 {EMAIL_CHECK_INTERVAL} 秒后重试...")
+                    time.sleep(EMAIL_CHECK_INTERVAL)
+        if last_error:
+            raise PinRetrievalError(f"邮件连接错误: {last_error}") from last_error
         raise PinRetrievalError("多次尝试后仍无法获取PIN码邮件。")
 
     # ==================== 服务器列表 ====================
@@ -667,7 +674,7 @@ class RenewalBot:
             url, headers=headers, data=data2, timeout=HTTP_TIMEOUT_SECONDS
         )
         step2.raise_for_status()
-        time.sleep(WAITING_TIME_OF_PIN)
+        time.sleep(PIN_WAIT_SECONDS)
         pin = self._get_pin_from_gmail()
         data3 = {
             "auth": pin,
@@ -827,17 +834,18 @@ class RenewalBot:
                 )
                 status = "异常"
                 exit_code = EXIT_FAILURE
-                self._refresh_session()
+                self._safe_refresh_session()
             elif not servers_to_renew:
                 # 智能调度：未到续约日期，跳过执行
                 self._log_non_renewable_servers(all_servers)
                 self.log("ℹ️ 未到续约日期，跳过执行。", LogLevel.INFO)
+                status = "跳过"
                 return EXIT_SKIPPED
             else:
                 if not self._process_server_renewals(servers_to_renew):
                     status = "失败"
                     exit_code = EXIT_FAILURE
-                self._refresh_session()
+                self._safe_refresh_session()
 
             self._check_post_renewal_status()
             self.log("\n🏁 --- 所有工作完成 ---")
