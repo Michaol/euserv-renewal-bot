@@ -1,10 +1,4 @@
 """Tests for _safe_eval_math() function."""
-import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from Euserv_Renewal import _safe_eval_math as safe_eval_math
 
 

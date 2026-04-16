@@ -1,0 +1,6 @@
+[project]
+name = "euserv-renewal-bot"
+requires-python = ">= 3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
