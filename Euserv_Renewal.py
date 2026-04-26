@@ -12,7 +12,9 @@ from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import imaplib
 import email
+from email.message import Message
 from datetime import date
+from typing import Any, Callable
 import smtplib
 from email.mime.text import MIMEText
 import hmac
@@ -39,15 +41,15 @@ class RenewalError(Exception):
 
 
 # 环境变量配置
-EUSERV_USERNAME = os.getenv("EUSERV_USERNAME")
-EUSERV_PASSWORD = os.getenv("EUSERV_PASSWORD")
-EUSERV_2FA = os.getenv("EUSERV_2FA")
-CAPTCHA_USERID = os.getenv("CAPTCHA_USERID")
-CAPTCHA_APIKEY = os.getenv("CAPTCHA_APIKEY")
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-NOTIFICATION_EMAIL = os.getenv("NOTIFICATION_EMAIL")
+EUSERV_USERNAME = os.getenv("EUSERV_USERNAME", "")
+EUSERV_PASSWORD = os.getenv("EUSERV_PASSWORD", "")
+EUSERV_2FA = os.getenv("EUSERV_2FA", "")
+CAPTCHA_USERID = os.getenv("CAPTCHA_USERID", "")
+CAPTCHA_APIKEY = os.getenv("CAPTCHA_APIKEY", "")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_USERNAME = os.getenv("EMAIL_USERNAME", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+NOTIFICATION_EMAIL = os.getenv("NOTIFICATION_EMAIL", "")
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -72,13 +74,13 @@ EXIT_SKIPPED = 2  # 未到续约日期，跳过执行
 
 # SMTP 配置 (可选环境变量)
 SMTP_HOST = os.getenv("SMTP_HOST") or (
-    EMAIL_HOST.replace("imap", "smtp") if EMAIL_HOST else None
+    EMAIL_HOST.replace("imap", "smtp") if EMAIL_HOST else ""
 )
-_smtp_port_env = os.getenv("SMTP_PORT")
+_smtp_port_env = os.getenv("SMTP_PORT", "")
 SMTP_PORT = int(_smtp_port_env) if _smtp_port_env and _smtp_port_env.strip() else 587
 
 # GitHub Actions 输出文件
-GITHUB_OUTPUT = os.getenv("GITHUB_OUTPUT")
+GITHUB_OUTPUT = os.getenv("GITHUB_OUTPUT", "")
 
 # 登录检测字符串常量
 CAPTCHA_PROMPT = "To finish the login process please solve the following captcha."
@@ -112,8 +114,8 @@ def _hotp(key: str, counter: int, digits: int = 6, digest: str = "sha1") -> str:
     counter_bytes = struct.pack(">Q", counter)
     mac = hmac.new(key_bytes, counter_bytes, digest).digest()
     offset = mac[-1] & 0x0F
-    binary = struct.unpack(">L", mac[offset : offset + 4])[0] & 0x7FFFFFFF
-    return str(binary)[-digits:].zfill(digits)
+    binary = struct.unpack(">L", mac[offset : offset + 4])[0] & 0x7FFFFFFF  # type: ignore[index]
+    return str(binary)[-digits:].zfill(digits)  # type: ignore[index]
 
 
 def _totp(key: str, time_step: int = 30, digits: int = 6, digest: str = "sha1") -> str:
@@ -123,7 +125,7 @@ def _totp(key: str, time_step: int = 30, digits: int = 6, digest: str = "sha1") 
 
 def _safe_eval_math(expr: str) -> int | None:
     """安全计算简单数学表达式 (仅支持 +, -, *, /)"""
-    ops = {
+    ops: dict[Any, Callable[[Any, Any], Any]] = {
         ast.Add: operator.add,
         ast.Sub: operator.sub,
         ast.Mult: operator.mul,
@@ -233,7 +235,7 @@ class RenewalBot:
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=HTTP_TIMEOUT_SECONDS)
             server.starttls()
             server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
-            server.sendmail(sender, [recipient], msg.as_string())
+            server.sendmail(EMAIL_USERNAME, [recipient], msg.as_string())
             server.quit()
             self.log("状态通知邮件已成功发送！", LogLevel.CELEBRATION)
         except smtplib.SMTPException as e:
@@ -394,7 +396,7 @@ class RenewalBot:
             return None
 
         two_fa_code = _totp(EUSERV_2FA)
-        self.log(f"已生成2FA动态密码: ****{two_fa_code[-2:]}")
+        self.log(f"已生成2FA动态密码: ****{two_fa_code[-2:]}")  # type: ignore[index]
 
         soup = BeautifulSoup(response_text, "html.parser")
         hidden_inputs = soup.find_all("input", type="hidden")
@@ -524,14 +526,16 @@ class RenewalBot:
     # ==================== PIN 码获取 ====================
 
     @staticmethod
-    def _extract_email_body(msg: email.message.Message) -> str:
+    def _extract_email_body(msg: Message) -> str:
         """从邮件消息中提取正文内容"""
-        def _decode_payload(part: email.message.Message) -> str:
+        def _decode_payload(part: Message) -> str:
             charset = part.get_content_charset() or "utf-8"
             payload = part.get_payload(decode=True)
             if payload is None:
                 return ""
-            return payload.decode(charset, errors="replace")
+            if isinstance(payload, bytes):
+                return payload.decode(charset, errors="replace")
+            return str(payload)
 
         if msg.is_multipart():
             for part in msg.walk():
@@ -550,13 +554,35 @@ class RenewalBot:
 
         latest_email_id = messages[0].split()[-1]
         _, data = mail.fetch(latest_email_id, "(RFC822)")
-        raw_email = data[0][1].decode("utf-8")
+        if not data or not data[0] or not isinstance(data[0], tuple):
+            return None
+        raw_data = data[0][1]  # type: ignore
+        if not isinstance(raw_data, bytes):
+            return None
+        raw_email = raw_data.decode("utf-8")
         msg = email.message_from_string(raw_email)
         body = self._extract_email_body(msg)
 
         pin_match = re.search(r"PIN:\s*\n?(\d{6})", body, re.IGNORECASE)
         if pin_match:
             return pin_match.group(1)
+        return None
+
+    def _try_fetch_pin_once(self, search_criteria: str) -> str | None:
+        """单次尝试从 Gmail 获取 PIN 码"""
+        mail = imaplib.IMAP4_SSL(EMAIL_HOST or "imap.gmail.com")
+        try:
+            mail.login(EMAIL_USERNAME or "", EMAIL_PASSWORD or "")
+            mail.select("inbox")
+            pin = self._fetch_pin_from_email(mail, search_criteria)
+            if pin:
+                self.log(f"成功从Gmail获取PIN码: ****{str(pin)[-2:]}")  # type: ignore[index]
+                return pin
+        finally:
+            try:
+                mail.logout()
+            except Exception:
+                pass
         return None
 
     def _get_pin_from_gmail(self) -> str:
@@ -568,19 +594,9 @@ class RenewalBot:
         last_error: Exception | None = None
         for i in range(EMAIL_MAX_RETRIES):
             try:
-                mail = imaplib.IMAP4_SSL(EMAIL_HOST)
-                try:
-                    mail.login(EMAIL_USERNAME, EMAIL_PASSWORD)
-                    mail.select("inbox")
-                    pin = self._fetch_pin_from_email(mail, search_criteria)
-                    if pin:
-                        self.log(f"成功从Gmail获取PIN码: ****{pin[-2:]}")
-                        return pin
-                finally:
-                    try:
-                        mail.logout()
-                    except Exception:
-                        pass
+                pin = self._try_fetch_pin_once(search_criteria)
+                if pin:
+                    return pin
                 self.log(f"第{i + 1}次尝试：未找到PIN邮件，等待{EMAIL_CHECK_INTERVAL}秒...")
                 time.sleep(EMAIL_CHECK_INTERVAL)
             except (imaplib.IMAP4.error, OSError) as e:
@@ -590,7 +606,9 @@ class RenewalBot:
                     self.log(f"将在 {EMAIL_CHECK_INTERVAL} 秒后重试...")
                     time.sleep(EMAIL_CHECK_INTERVAL)
         if last_error:
-            raise PinRetrievalError(f"邮件连接错误: {last_error}") from last_error
+            if isinstance(last_error, Exception):
+                raise PinRetrievalError(f"邮件连接错误: {last_error}") from last_error
+            raise PinRetrievalError(f"邮件连接错误: {last_error}")
         raise PinRetrievalError("多次尝试后仍无法获取PIN码邮件。")
 
     # ==================== 服务器列表 ====================
@@ -624,7 +642,7 @@ class RenewalBot:
         selector = "#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr"
         matched_rows = soup.select(selector)
         server_list = [
-            s for tr in matched_rows if (s := self._parse_server_row(tr)) is not None
+            s for s in (self._parse_server_row(tr) for tr in matched_rows) if s is not None
         ]
         self.log(f"发现 {len(server_list)} 台服务器合同")
 
@@ -719,7 +737,7 @@ class RenewalBot:
                         earliest_date = server["date"]
 
         if earliest_date and GITHUB_OUTPUT:
-            self._output_next_schedule(earliest_date)
+            self._output_next_schedule(str(earliest_date))
 
     def _output_next_schedule(self, date_str: str) -> None:
         """输出下次续约日期的 cron 表达式到 GITHUB_OUTPUT。"""
@@ -797,7 +815,7 @@ class RenewalBot:
         if earliest_date:
             self.log(f"📅 下次续约窗口开启时间: {earliest_date}", LogLevel.INFO)
             if GITHUB_OUTPUT:
-                self._output_next_schedule(earliest_date)
+                self._output_next_schedule(str(earliest_date))
 
     # ==================== 主入口 ====================
 
