@@ -1,7 +1,9 @@
 # Python
 __pycache__/
 *.pyc
-.pytest_cache/\r\n.ruff_cache/
+.pytest_cache/
+.ruff_cache/
+.claude/
 
 # Logs & caches
 log_cache.txt

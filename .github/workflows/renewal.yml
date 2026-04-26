@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -105,7 +107,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/workflows/renewal.yml
             git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE"
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
+            git push origin HEAD:main
           fi
       - name: Upload failed captcha for debugging
         if: failure()
