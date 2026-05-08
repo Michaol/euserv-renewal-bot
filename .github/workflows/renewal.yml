@@ -3,11 +3,6 @@ on:
   schedule:
     - cron: 0 0 22 5 *
   workflow_dispatch:
-
-# 给 Action 全局写权限（必须加，否则无法提交代码）
-permissions:
-  contents: write
-
 jobs:
   renew-vps:
     runs-on: ubuntu-latest
@@ -15,22 +10,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          # 用你已有的 PAT，确保它有 repo + workflow 权限
           token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
-          persist-credentials: false
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
       - name: Cache Virtual Environment
         id: cache-venv
-        uses: cache/cache@v5
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ runner.os }}-venv-${{ hashFiles('requirements.txt') }}
-
       - name: Create venv and Install dependencies
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
@@ -38,7 +28,6 @@ jobs:
           source venv/bin/activate
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Run renewal script with retry
         id: renewal
         env:
@@ -57,25 +46,27 @@ jobs:
           source venv/bin/activate
 
           MAX_RETRIES=3
-          RETRY_DELAY=1800
+          RETRY_DELAY=1800  # 30分钟 (秒)
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "========================================="
             echo "🔄 尝试 $i/$MAX_RETRIES - $(date)"
             echo "========================================="
             
-            set +e
+            set +e  # 允许非零退出码
             python Euserv_Renewal.py
             EXIT_CODE=$?
             set -e
             
+            # 退出码处理
             case $EXIT_CODE in
               0)
                 echo "✅ 续约成功或无需续约"
                 exit 0
                 ;;
               2)
-                echo "⏭️ 未到续约日期，跳过执行"
+                echo "⏭️ 未到续约日期，跳过执行 (动态调度将更新 cron)"
+                # 正常退出，让后续步骤执行动态调度更新
                 exit 0
                 ;;
               *)
@@ -88,12 +79,8 @@ jobs:
             esac
           done
 
-          echo "💥 所有重试均失败"
+          echo "💥 所有 $MAX_RETRIES 次重试均失败"
           exit 1
-
-      # ==============================================
-      # 这里我帮你彻底修复 403 push 权限问题
-      # ==============================================
       - name: Update schedule for next renewal
         if: steps.renewal.outputs.next_cron != ''
         env:
@@ -104,29 +91,24 @@ jobs:
           python3 -c "
           import re, sys
           path = '.github/workflows/renewal.yml'
-          new_cron = '$NEXT_CRON'
-          with open(path, 'r', encoding='utf-8') as f:
+          new_cron = '${{ steps.renewal.outputs.next_cron }}'
+          with open(path, 'r') as f:
               content = f.read()
-          # 匹配并替换 cron 行
           updated = re.sub(r'(- cron: ).*', r'\g<1>' + new_cron, content, count=1)
           if updated == content:
               print('⏭️ Cron 未变化，跳过更新')
               sys.exit(0)
-          with open(path, 'w', encoding='utf-8') as f:
+          with open(path, 'w') as f:
               f.write(updated)
           print(f'✅ Cron 已更新为: {new_cron}')
           "
-
           if ! git diff --quiet .github/workflows/renewal.yml; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/workflows/renewal.yml
             git commit -m "ci(renewal): 更新下次续约时间为 $NEXT_DATE"
-            
-            # 关键修复：使用带 Token 的方式 push，彻底解决 403
-            git push https://x-access-token:${GH_TOKEN}@github.com/zhaojunwei9527/euserv-renewal-bot.git HEAD:main
+            git push origin HEAD:main
           fi
-
       - name: Upload failed captcha for debugging
         if: failure()
         uses: actions/upload-artifact@v7
