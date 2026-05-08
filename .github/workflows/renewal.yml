@@ -3,6 +3,10 @@ on:
   schedule:
     - cron: 0 0 22 5 *
   workflow_dispatch:
+  
+permissions:
+  contents: write
+  
 jobs:
   renew-vps:
     runs-on: ubuntu-latest
